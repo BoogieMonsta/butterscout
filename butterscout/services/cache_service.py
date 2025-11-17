@@ -10,6 +10,7 @@ from butterscout.clients.redis_client import ValkeyClient
 from butterscout.config import Settings
 from butterscout.models.requests import SearchRequest
 from butterscout.models.responses import SearchResponse
+from butterscout.services.metrics import metrics_service
 from butterscout.utils.redis_keys import generate_cache_key
 
 logger = structlog.get_logger()
@@ -47,6 +48,7 @@ class CacheService:
             cached_json = await self.redis.get(cache_key)
 
             if cached_json:
+                metrics_service.record_cache_hit()
                 logger.info(
                     "cache_hit",
                     request_id=request_id,
@@ -56,6 +58,7 @@ class CacheService:
                 data = json.loads(cached_json)
                 return SearchResponse(**data)
 
+            metrics_service.record_cache_miss()
             logger.info(
                 "cache_miss",
                 request_id=request_id,

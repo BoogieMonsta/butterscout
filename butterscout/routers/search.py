@@ -41,6 +41,8 @@ async def search(
     """
     request_id = getattr(request.state, "request_id", "unknown")
     start_time = time.perf_counter()
+    if hasattr(request.state, "error_code"):
+        request.state.error_code = None
 
     logger.info(
         "search_request_begin",
@@ -59,6 +61,9 @@ async def search(
         request_id=request_id,
     )
 
+    if hasattr(request.state, "rate_limited"):
+        request.state.rate_limited = not is_allowed
+
     rate_limit_headers = generate_rate_limit_headers(
         limit=limit,
         remaining=remaining,
@@ -67,6 +72,8 @@ async def search(
     )
 
     if not is_allowed:
+        if hasattr(request.state, "error_code"):
+            request.state.error_code = "RATE_LIMITED"
         logger.warning(
             "rate_limit_exceeded",
             request_id=request_id,
@@ -94,6 +101,8 @@ async def search(
     # 2. Authentication (if required)
     if app_state.settings.BS_API_KEY:
         if not x_api_key or x_api_key != app_state.settings.BS_API_KEY:
+            if hasattr(request.state, "error_code"):
+                request.state.error_code = "UNAUTHORIZED"
             logger.warning(
                 "authentication_failed",
                 request_id=request_id,
@@ -124,6 +133,9 @@ async def search(
     cached_response = await cache_service.get(request_body, request_id)
 
     if cached_response:
+        if hasattr(request.state, "cache_hit"):
+            request.state.cache_hit = True
+
         total_time_ms = int((time.perf_counter() - start_time) * 1000)
 
         logger.info(
@@ -132,14 +144,24 @@ async def search(
             total_time_ms=total_time_ms,
         )
 
-        cached_response.metadata.cache_hit = True
         cached_response.metadata.search_time_ms = total_time_ms
+        cached_response.metadata.cache_hit = True
         cached_response.metadata.rate_limited = False
+
+        if hasattr(request.state, "searxng_time_ms"):
+            request.state.searxng_time_ms = cached_response.metadata.searxng_time_ms or 0
+        if hasattr(request.state, "extraction_time_ms"):
+            request.state.extraction_time_ms = cached_response.metadata.extraction_time_ms or 0
+        if hasattr(request.state, "url_count"):
+            request.state.url_count = len(cached_response.results)
 
         return JSONResponse(
             content=cached_response.model_dump(mode="json"),
             headers=rate_limit_headers,
         )
+    else:
+        if hasattr(request.state, "cache_hit"):
+            request.state.cache_hit = False
 
     # 4. Execute Search via SearXNG
     searxng_start = time.perf_counter()
@@ -155,6 +177,8 @@ async def search(
             request_id=request_id,
             error=str(e),
         )
+        if hasattr(request.state, "error_code"):
+            request.state.error_code = "UPSTREAM_ERROR"
         return JSONResponse(
             status_code=502,
             content={
@@ -176,6 +200,8 @@ async def search(
         )
 
     searxng_time_ms = int((time.perf_counter() - searxng_start) * 1000)
+    if hasattr(request.state, "searxng_time_ms"):
+        request.state.searxng_time_ms = searxng_time_ms
 
     # 5. Apply Domain Filtering
     filtered_results = [
@@ -210,6 +236,8 @@ async def search(
         )
 
         extraction_time_ms = int((time.perf_counter() - extraction_start) * 1000)
+        if hasattr(request.state, "extraction_time_ms"):
+            request.state.extraction_time_ms = extraction_time_ms
 
         results = ResultAssembler.assemble(
             deduplicated_results,
@@ -232,9 +260,13 @@ async def search(
     # 9. Rank Results
     ranker = Ranker(app_state.settings)
     ranked_results = ranker.rank(results, request_id)
+    if hasattr(request.state, "url_count"):
+        request.state.url_count = len(ranked_results)
 
     # 10. Build Response
     total_time_ms = int((time.perf_counter() - start_time) * 1000)
+    if hasattr(request.state, "extraction_time_ms"):
+        request.state.extraction_time_ms = extraction_time_ms or 0
 
     response = SearchResponse(
         query=request_body.query,

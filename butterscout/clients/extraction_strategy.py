@@ -10,6 +10,7 @@ from butterscout.clients.crawl4ai_client import Crawl4AIClient
 from butterscout.clients.trafilatura_client import TrafilaturaClient
 from butterscout.config import Settings
 from butterscout.models.internal import ExtractedContent
+from butterscout.services.metrics import metrics_service
 
 logger = structlog.get_logger()
 
@@ -42,7 +43,15 @@ class ExtractionStrategy:
         """
         # Try Crawl4AI first
         try:
-            return await self.crawl4ai.extract(url, request_id)
+            result = await self.crawl4ai.extract(url, request_id)
+            # Record metrics
+            metrics_service.record_extraction(
+                extractor="crawl4ai",
+                duration_seconds=result.extraction_time_ms / 1000.0,
+                success=result.extraction_ok,
+                reason=None if result.extraction_ok else "error",
+            )
+            return result
 
         except Exception as crawl_error:
             logger.warning(
@@ -52,10 +61,27 @@ class ExtractionStrategy:
                 error=str(crawl_error),
             )
 
+            # Record crawl4ai failure
+            is_timeout = isinstance(crawl_error, TimeoutError)
+            metrics_service.record_extraction(
+                extractor="crawl4ai",
+                duration_seconds=0,
+                success=False,
+                reason="timeout" if is_timeout else "error",
+            )
+
             # Try fallback if enabled
             if self.fallback_enabled and self.trafilatura:
                 try:
-                    return await self.trafilatura.extract(url, request_id)
+                    result = await self.trafilatura.extract(url, request_id)
+                    # Record trafilatura metrics
+                    metrics_service.record_extraction(
+                        extractor="trafilatura",
+                        duration_seconds=result.extraction_time_ms / 1000.0,
+                        success=result.extraction_ok,
+                        reason=None if result.extraction_ok else "error",
+                    )
+                    return result
                 except Exception as fallback_error:
                     logger.error(
                         "fallback_also_failed",
@@ -63,6 +89,14 @@ class ExtractionStrategy:
                         url=url,
                         crawl_error=str(crawl_error),
                         fallback_error=str(fallback_error),
+                    )
+                    # Record trafilatura failure
+                    is_timeout = isinstance(fallback_error, TimeoutError)
+                    metrics_service.record_extraction(
+                        extractor="trafilatura",
+                        duration_seconds=0,
+                        success=False,
+                        reason="timeout" if is_timeout else "error",
                     )
                     # Return failed extraction
                     return ExtractedContent(

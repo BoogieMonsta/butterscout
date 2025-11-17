@@ -1,6 +1,7 @@
 """SearXNG client for search orchestration."""
 import asyncio
 import random
+import time
 from typing import Optional, cast
 
 import httpx
@@ -10,6 +11,7 @@ import structlog
 from butterscout.config import Settings
 from butterscout.models.internal import NormalizedSearchResult
 from butterscout.models.requests import SearchRequest
+from butterscout.services.metrics import metrics_service
 from butterscout.utils.domain_filter import is_domain_allowed
 
 logger = structlog.get_logger()
@@ -90,6 +92,9 @@ class SearXNGClient:
             language=request.options.language,
         )
 
+        # Track request duration for metrics
+        start_time = time.perf_counter()
+
         # Execute with retry on 5xx/timeout
         attempt = 0
         last_error = None
@@ -123,6 +128,10 @@ class SearXNGClient:
                     request.options.exclude_domains,
                     request_id,
                 )
+
+                # Record metrics
+                duration_seconds = time.perf_counter() - start_time
+                metrics_service.record_searxng_request(duration_seconds)
 
                 logger.info(
                     "searxng_success",
