@@ -27,7 +27,7 @@ class ExtractionStrategy:
         self.trafilatura = trafilatura
         self.fallback_enabled = settings.BS_FALLBACK_ENABLED
 
-    async def extract(self, url: str, request_id: str) -> ExtractedContent:
+    async def extract(self, url: HttpUrl, request_id: str) -> ExtractedContent:
         """
         Extract content with fallback strategy.
 

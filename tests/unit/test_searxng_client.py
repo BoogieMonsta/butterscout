@@ -1,4 +1,6 @@
 """Unit tests for SearXNG client."""
+from typing import Any
+
 import pytest
 import httpx
 import respx
@@ -10,9 +12,9 @@ from butterscout.models.requests import SearchRequest, SearchOptions
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_searxng_search_success(settings: Settings):
+async def test_searxng_search_success(settings: Settings) -> None:
     """Test successful search request."""
-    mock_response = {
+    mock_response: dict[str, Any] = {
         "results": [
             {
                 "title": "Test Result 1",
@@ -53,9 +55,9 @@ async def test_searxng_search_success(settings: Settings):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_searxng_search_with_language(settings: Settings):
+async def test_searxng_search_with_language(settings: Settings) -> None:
     """Test search request with language parameter."""
-    mock_response = {"results": []}
+    mock_response: dict[str, Any] = {"results": []}
 
     route = respx.get(f"{settings.BS_SEARXNG_URL}/search").mock(
         return_value=httpx.Response(200, json=mock_response)
@@ -78,9 +80,9 @@ async def test_searxng_search_with_language(settings: Settings):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_searxng_search_with_freshness(settings: Settings):
+async def test_searxng_search_with_freshness(settings: Settings) -> None:
     """Test search request with freshness parameter."""
-    mock_response = {"results": []}
+    mock_response: dict[str, Any] = {"results": []}
 
     route = respx.get(f"{settings.BS_SEARXNG_URL}/search").mock(
         return_value=httpx.Response(200, json=mock_response)
@@ -123,9 +125,9 @@ async def test_searxng_search_with_freshness(settings: Settings):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_searxng_retry_on_timeout(settings: Settings):
+async def test_searxng_retry_on_timeout(settings: Settings) -> None:
     """Test retry logic on timeout."""
-    mock_response = {
+    mock_response: dict[str, Any] = {
         "results": [
             {
                 "title": "Success after retry",
@@ -159,9 +161,9 @@ async def test_searxng_retry_on_timeout(settings: Settings):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_searxng_retry_on_5xx_error(settings: Settings):
+async def test_searxng_retry_on_5xx_error(settings: Settings) -> None:
     """Test retry logic on 5xx server error."""
-    mock_response = {
+    mock_response: dict[str, Any] = {
         "results": [
             {
                 "title": "Success after retry",
@@ -194,9 +196,9 @@ async def test_searxng_retry_on_5xx_error(settings: Settings):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_searxng_retry_on_429_error(settings: Settings):
+async def test_searxng_retry_on_429_error(settings: Settings) -> None:
     """Test retry logic on 429 rate limit error."""
-    mock_response = {
+    mock_response: dict[str, Any] = {
         "results": [
             {
                 "title": "Success after retry",
@@ -229,7 +231,7 @@ async def test_searxng_retry_on_429_error(settings: Settings):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_searxng_no_retry_on_4xx_error(settings: Settings):
+async def test_searxng_no_retry_on_4xx_error(settings: Settings) -> None:
     """Test that 4xx errors are not retried."""
     respx.get(f"{settings.BS_SEARXNG_URL}/search").mock(
         return_value=httpx.Response(400, text="Bad Request")
@@ -252,7 +254,7 @@ async def test_searxng_no_retry_on_4xx_error(settings: Settings):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_searxng_max_retries_exceeded(settings: Settings):
+async def test_searxng_max_retries_exceeded(settings: Settings) -> None:
     """Test that retries stop after max attempts."""
     respx.get(f"{settings.BS_SEARXNG_URL}/search").mock(
         side_effect=[
@@ -279,9 +281,9 @@ async def test_searxng_max_retries_exceeded(settings: Settings):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_searxng_normalize_results_with_missing_fields(settings: Settings):
+async def test_searxng_normalize_results_with_missing_fields(settings: Settings) -> None:
     """Test normalization of results with missing optional fields."""
-    mock_response = {
+    mock_response: dict[str, Any] = {
         "results": [
             {
                 # Only required field
@@ -334,7 +336,7 @@ async def test_searxng_normalize_results_with_missing_fields(settings: Settings)
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_searxng_max_results_limit(settings: Settings):
+async def test_searxng_max_results_limit(settings: Settings) -> None:
     """Test that max_results is respected."""
     # Create 15 mock results
     mock_results = [
@@ -347,7 +349,7 @@ async def test_searxng_max_results_limit(settings: Settings):
         for i in range(15)
     ]
 
-    mock_response = {"results": mock_results}
+    mock_response: dict[str, Any] = {"results": mock_results}
 
     respx.get(f"{settings.BS_SEARXNG_URL}/search").mock(
         return_value=httpx.Response(200, json=mock_response)
@@ -371,11 +373,11 @@ async def test_searxng_max_results_limit(settings: Settings):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_searxng_snippet_truncation(settings: Settings):
+async def test_searxng_snippet_truncation(settings: Settings) -> None:
     """Test that long snippets are truncated to 500 characters."""
     long_content = "A" * 1000  # 1000 character string
 
-    mock_response = {
+    mock_response: dict[str, Any] = {
         "results": [
             {
                 "title": "Long Content",
@@ -406,9 +408,9 @@ async def test_searxng_snippet_truncation(settings: Settings):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_searxng_invalid_result_skipped(settings: Settings):
+async def test_searxng_invalid_result_skipped(settings: Settings) -> None:
     """Test that invalid results are skipped with warning."""
-    mock_response = {
+    mock_response: dict[str, Any] = {
         "results": [
             {
                 "title": "Valid Result",
@@ -449,7 +451,7 @@ async def test_searxng_invalid_result_skipped(settings: Settings):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_searxng_health_check_success(settings: Settings):
+async def test_searxng_health_check_success(settings: Settings) -> None:
     """Test successful health check."""
     respx.get(f"{settings.BS_SEARXNG_URL}/").mock(
         return_value=httpx.Response(200, text="OK")
@@ -467,7 +469,7 @@ async def test_searxng_health_check_success(settings: Settings):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_searxng_health_check_failure(settings: Settings):
+async def test_searxng_health_check_failure(settings: Settings) -> None:
     """Test failed health check."""
     respx.get(f"{settings.BS_SEARXNG_URL}/").mock(
         return_value=httpx.Response(500, text="Internal Server Error")
@@ -484,7 +486,7 @@ async def test_searxng_health_check_failure(settings: Settings):
 
 
 @pytest.mark.asyncio
-async def test_searxng_health_check_not_connected(settings: Settings):
+async def test_searxng_health_check_not_connected(settings: Settings) -> None:
     """Test health check when client not connected."""
     client = SearXNGClient(settings)
     # Don't call connect()
@@ -494,7 +496,7 @@ async def test_searxng_health_check_not_connected(settings: Settings):
 
 
 @pytest.mark.asyncio
-async def test_searxng_search_not_connected(settings: Settings):
+async def test_searxng_search_not_connected(settings: Settings) -> None:
     """Test that search fails when client not connected."""
     client = SearXNGClient(settings)
     # Don't call connect()
@@ -507,9 +509,9 @@ async def test_searxng_search_not_connected(settings: Settings):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_searxng_empty_results(settings: Settings):
+async def test_searxng_empty_results(settings: Settings) -> None:
     """Test handling of empty results from SearXNG."""
-    mock_response = {"results": []}
+    mock_response: dict[str, Any] = {"results": []}
 
     respx.get(f"{settings.BS_SEARXNG_URL}/search").mock(
         return_value=httpx.Response(200, json=mock_response)
@@ -530,9 +532,9 @@ async def test_searxng_empty_results(settings: Settings):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_searxng_domain_whitelist(settings: Settings):
+async def test_searxng_domain_whitelist(settings: Settings) -> None:
     """Test domain filtering with whitelist."""
-    mock_response = {
+    mock_response: dict[str, Any] = {
         "results": [
             {
                 "title": "Allowed Result 1",
@@ -586,9 +588,9 @@ async def test_searxng_domain_whitelist(settings: Settings):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_searxng_domain_blacklist(settings: Settings):
+async def test_searxng_domain_blacklist(settings: Settings) -> None:
     """Test domain filtering with blacklist."""
-    mock_response = {
+    mock_response: dict[str, Any] = {
         "results": [
             {
                 "title": "Good Result 1",
@@ -624,7 +626,8 @@ async def test_searxng_domain_blacklist(settings: Settings):
         # Block spam.com and ads.example.net
         request = SearchRequest(
             query="test",
-            options=SearchOptions(exclude_domains=["spam.com", "ads.example.net"]),
+            options=SearchOptions(
+                exclude_domains=["spam.com", "ads.example.net"]),
         )
         results = await client.search(request, request_id="test-123")
 
@@ -640,9 +643,9 @@ async def test_searxng_domain_blacklist(settings: Settings):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_searxng_domain_whitelist_and_blacklist(settings: Settings):
+async def test_searxng_domain_whitelist_and_blacklist(settings: Settings) -> None:
     """Test domain filtering with both whitelist and blacklist."""
-    mock_response = {
+    mock_response: dict[str, Any] = {
         "results": [
             {
                 "title": "Allowed Result",
@@ -690,9 +693,9 @@ async def test_searxng_domain_whitelist_and_blacklist(settings: Settings):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_searxng_invalid_url_scheme_filtered(settings: Settings):
+async def test_searxng_invalid_url_scheme_filtered(settings: Settings) -> None:
     """Test that non-http/https URLs are filtered out."""
-    mock_response = {
+    mock_response: dict[str, Any] = {
         "results": [
             {
                 "title": "Valid HTTP",
@@ -738,7 +741,7 @@ async def test_searxng_invalid_url_scheme_filtered(settings: Settings):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_searxng_invalid_json_response(settings: Settings):
+async def test_searxng_invalid_json_response(settings: Settings) -> None:
     """Test handling of invalid JSON response from SearXNG."""
     respx.get(f"{settings.BS_SEARXNG_URL}/search").mock(
         return_value=httpx.Response(200, text="This is not JSON")

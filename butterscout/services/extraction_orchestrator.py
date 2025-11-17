@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union, cast
 
 import structlog
+from pydantic import HttpUrl
 
 from butterscout.models.internal import ExtractedContent
 
@@ -66,10 +67,12 @@ class ExtractionOrchestrator:
         ]
 
         # Execute all tasks concurrently
-        extracted_contents = await asyncio.gather(*tasks, return_exceptions=True)
+        extracted_contents: list[Union[ExtractedContent, BaseException]] = await asyncio.gather(
+            *tasks, return_exceptions=True
+        )
 
         # Handle any unexpected exceptions
-        results = []
+        results: list[ExtractedContent] = []
         for idx, content in enumerate(extracted_contents):
             if isinstance(content, Exception):
                 logger.error(
@@ -91,7 +94,7 @@ class ExtractionOrchestrator:
                     )
                 )
             else:
-                results.append(content)
+                results.append(cast(ExtractedContent, content))
 
         # Calculate metrics
         total_time_ms = int((time.perf_counter() - start_time) * 1000)
@@ -111,7 +114,7 @@ class ExtractionOrchestrator:
 
     async def _extract_with_semaphore(
         self,
-        url: str,
+        url: HttpUrl,
         request_id: str,
     ) -> ExtractedContent:
         """Extract single URL with semaphore for concurrency control.

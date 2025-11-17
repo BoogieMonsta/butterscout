@@ -2,23 +2,30 @@
 from __future__ import annotations
 
 import asyncio
+from typing import cast
 from unittest.mock import AsyncMock
 
 import pytest
+from pydantic import HttpUrl
 
+from butterscout.config import Settings
 from butterscout.models.internal import ExtractedContent, NormalizedSearchResult
 from butterscout.services.extraction_orchestrator import ExtractionOrchestrator
 from butterscout.services.result_assembler import ResultAssembler
 from butterscout.utils.content_filter import filter_low_quality_results
 
 
+def _url(url_str: str) -> HttpUrl:
+    return cast(HttpUrl, url_str)
+
+
 @pytest.mark.asyncio
-async def test_complete_extraction_flow(settings):
+async def test_complete_extraction_flow(settings: Settings) -> None:
     """Test complete flow: orchestration -> assembly -> filtering."""
     # Mock extraction strategy
     mock_strategy = AsyncMock()
 
-    async def mock_extract(url: str, req_id: str) -> ExtractedContent:
+    async def mock_extract(url: HttpUrl, req_id: str) -> ExtractedContent:
         # Simulate different outcomes for different URLs
         url_str = str(url)
         if "fail" in url_str:
@@ -56,25 +63,25 @@ async def test_complete_extraction_flow(settings):
     search_results = [
         NormalizedSearchResult(
             title="Good Article 1",
-            url="https://example1.com/good",
+            url=_url("https://example1.com/good"),
             snippet="Good snippet 1",
             score=0.95,
         ),
         NormalizedSearchResult(
             title="Failed Article",
-            url="https://example2.com/fail",
+            url=_url("https://example2.com/fail"),
             snippet="Failed snippet",
             score=0.85,
         ),
         NormalizedSearchResult(
             title="Short Article",
-            url="https://example3.com/short",
+            url=_url("https://example3.com/short"),
             snippet="Short snippet",
             score=0.75,
         ),
         NormalizedSearchResult(
             title="Good Article 2",
-            url="https://example4.com/good",
+            url=_url("https://example4.com/good"),
             snippet="Good snippet 2",
             score=0.65,
         ),
@@ -112,11 +119,11 @@ async def test_complete_extraction_flow(settings):
 
 
 @pytest.mark.asyncio
-async def test_large_batch_extraction(settings):
+async def test_large_batch_extraction(settings: Settings) -> None:
     """Test extraction with large number of URLs."""
     mock_strategy = AsyncMock()
 
-    async def mock_extract(url: str, req_id: str) -> ExtractedContent:
+    async def mock_extract(url: HttpUrl, req_id: str) -> ExtractedContent:
         # Add small delay to simulate real work
         await asyncio.sleep(0.01)
 
@@ -135,7 +142,7 @@ async def test_large_batch_extraction(settings):
     search_results = [
         NormalizedSearchResult(
             title=f"Article {i}",
-            url=f"https://example{i}.com/article",
+            url=_url(f"https://example{i}.com/article"),
             snippet=f"Snippet {i}",
             score=1.0 - i * 0.05,
         )
@@ -162,7 +169,7 @@ async def test_large_batch_extraction(settings):
 
 
 @pytest.mark.asyncio
-async def test_all_extractions_fail(settings):
+async def test_all_extractions_fail(settings: Settings) -> None:
     """Test flow when all extractions fail."""
     mock_strategy = AsyncMock()
     mock_strategy.extract = AsyncMock(
@@ -172,13 +179,13 @@ async def test_all_extractions_fail(settings):
     search_results = [
         NormalizedSearchResult(
             title="Article 1",
-            url="https://example1.com/article",
+            url=_url("https://example1.com/article"),
             snippet="Snippet 1",
             score=0.95,
         ),
         NormalizedSearchResult(
             title="Article 2",
-            url="https://example2.com/article",
+            url=_url("https://example2.com/article"),
             snippet="Snippet 2",
             score=0.85,
         ),
@@ -210,11 +217,11 @@ async def test_all_extractions_fail(settings):
 
 
 @pytest.mark.asyncio
-async def test_content_optional_flag(settings):
+async def test_content_optional_flag(settings: Settings) -> None:
     """Test that include_content flag works correctly."""
     mock_strategy = AsyncMock()
 
-    async def mock_extract(url: str, req_id: str) -> ExtractedContent:
+    async def mock_extract(url: HttpUrl, req_id: str) -> ExtractedContent:
         return ExtractedContent(
             url=url,
             content="This is the full content of the article.",
@@ -229,7 +236,7 @@ async def test_content_optional_flag(settings):
     search_results = [
         NormalizedSearchResult(
             title="Article",
-            url="https://example.com/article",
+            url=_url("https://example.com/article"),
             snippet="Snippet",
             score=0.95,
         ),
@@ -262,13 +269,13 @@ async def test_content_optional_flag(settings):
 
 
 @pytest.mark.asyncio
-async def test_partial_failure_graceful_degradation(settings):
+async def test_partial_failure_graceful_degradation(settings: Settings) -> None:
     """Test graceful degradation with partial failures."""
     mock_strategy = AsyncMock()
 
     call_count = 0
 
-    async def mock_extract(url: str, req_id: str) -> ExtractedContent:
+    async def mock_extract(url: HttpUrl, req_id: str) -> ExtractedContent:
         nonlocal call_count
         call_count += 1
 
@@ -290,7 +297,7 @@ async def test_partial_failure_graceful_degradation(settings):
     search_results = [
         NormalizedSearchResult(
             title=f"Article {i}",
-            url=f"https://example{i}.com/article",
+            url=_url(f"https://example{i}.com/article"),
             snippet=f"Snippet {i}",
             score=1.0 - i * 0.1,
         )

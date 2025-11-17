@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import asyncio
+from typing import cast
 
 import pytest
 import pytest_asyncio
+from pydantic import HttpUrl
 
 from butterscout.clients.redis_client import ValkeyClient
 from butterscout.config import Settings
@@ -12,6 +14,10 @@ from butterscout.models.requests import SearchRequest
 from butterscout.models.responses import ResponseMetadata, SearchResponse
 from butterscout.services.cache_service import CacheService
 from butterscout.utils.redis_keys import generate_cache_key
+
+
+def _url(url_str: str) -> HttpUrl:
+    return cast(HttpUrl, url_str)
 
 
 @pytest.fixture
@@ -329,7 +335,7 @@ async def test_cache_serialization_deserialization(settings: Settings) -> None:
             results=[
                 SearchResult(
                     title="Test Result 1",
-                    url="https://example.com/1",
+                    url=_url("https://example.com/1"),
                     snippet="This is a test snippet",
                     content="Full content here",
                     metadata=ResultMetadata(
@@ -343,7 +349,7 @@ async def test_cache_serialization_deserialization(settings: Settings) -> None:
                 ),
                 SearchResult(
                     title="Test Result 2",
-                    url="https://example.com/2",
+                    url=_url("https://example.com/2"),
                     snippet="Another test snippet",
                     content=None,  # No content
                     metadata=ResultMetadata(

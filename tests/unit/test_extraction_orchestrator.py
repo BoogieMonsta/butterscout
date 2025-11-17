@@ -2,21 +2,29 @@
 from __future__ import annotations
 
 import asyncio
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from _pytest.logging import LogCaptureFixture
+from pydantic import HttpUrl
 
+from butterscout.config import Settings
 from butterscout.models.internal import ExtractedContent, NormalizedSearchResult
 from butterscout.services.extraction_orchestrator import ExtractionOrchestrator
 
 
+def _url(url_str: str) -> HttpUrl:
+    return cast(HttpUrl, url_str)
+
+
 @pytest.mark.asyncio
-async def test_orchestrator_parallel_extraction(settings):
+async def test_orchestrator_parallel_extraction(settings: Settings) -> None:
     """Test parallel extraction of multiple URLs."""
     mock_strategy = AsyncMock()
 
     # Mock extract to return different content for each URL
-    async def mock_extract(url: str, req_id: str) -> ExtractedContent:
+    async def mock_extract(url: HttpUrl, req_id: str) -> ExtractedContent:
         return ExtractedContent(
             url=url,
             content=f"Content for {url}",
@@ -33,19 +41,19 @@ async def test_orchestrator_parallel_extraction(settings):
     search_results = [
         NormalizedSearchResult(
             title="Test 1",
-            url="https://example1.com",
+            url=_url("https://example1.com"),
             snippet="Snippet 1",
             score=0.9,
         ),
         NormalizedSearchResult(
             title="Test 2",
-            url="https://example2.com",
+            url=_url("https://example2.com"),
             snippet="Snippet 2",
             score=0.8,
         ),
         NormalizedSearchResult(
             title="Test 3",
-            url="https://example3.com",
+            url=_url("https://example3.com"),
             snippet="Snippet 3",
             score=0.7,
         ),
@@ -60,7 +68,7 @@ async def test_orchestrator_parallel_extraction(settings):
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_handles_failures(settings):
+async def test_orchestrator_handles_failures(settings: Settings) -> None:
     """Test that orchestrator handles extraction failures gracefully."""
     mock_strategy = AsyncMock()
     mock_strategy.extract = AsyncMock(
@@ -72,7 +80,7 @@ async def test_orchestrator_handles_failures(settings):
     search_results = [
         NormalizedSearchResult(
             title="Test",
-            url="https://example.com",
+            url=_url("https://example.com"),
             snippet="Snippet",
             score=0.9,
         ),
@@ -88,13 +96,13 @@ async def test_orchestrator_handles_failures(settings):
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_mixed_success_failure(settings):
+async def test_orchestrator_mixed_success_failure(settings: Settings) -> None:
     """Test orchestrator with mix of successful and failed extractions."""
     mock_strategy = AsyncMock()
 
     call_count = 0
 
-    async def mock_extract(url: str, req_id: str) -> ExtractedContent:
+    async def mock_extract(url: HttpUrl, req_id: str) -> ExtractedContent:
         nonlocal call_count
         call_count += 1
 
@@ -118,19 +126,19 @@ async def test_orchestrator_mixed_success_failure(settings):
     search_results = [
         NormalizedSearchResult(
             title="Test 1",
-            url="https://example1.com",
+            url=_url("https://example1.com"),
             snippet="Snippet 1",
             score=0.9,
         ),
         NormalizedSearchResult(
             title="Test 2",
-            url="https://example2.com",
+            url=_url("https://example2.com"),
             snippet="Snippet 2",
             score=0.8,
         ),
         NormalizedSearchResult(
             title="Test 3",
-            url="https://example3.com",
+            url=_url("https://example3.com"),
             snippet="Snippet 3",
             score=0.7,
         ),
@@ -146,7 +154,7 @@ async def test_orchestrator_mixed_success_failure(settings):
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_respects_semaphore(settings):
+async def test_orchestrator_respects_semaphore(settings: Settings) -> None:
     """Test that orchestrator respects concurrency limits."""
     mock_strategy = AsyncMock()
 
@@ -155,7 +163,7 @@ async def test_orchestrator_respects_semaphore(settings):
     max_concurrent_seen = 0
     lock = asyncio.Lock()
 
-    async def mock_extract(url: str, req_id: str) -> ExtractedContent:
+    async def mock_extract(url: HttpUrl, req_id: str) -> ExtractedContent:
         nonlocal current_concurrent, max_concurrent_seen
 
         async with lock:
@@ -186,7 +194,7 @@ async def test_orchestrator_respects_semaphore(settings):
     search_results = [
         NormalizedSearchResult(
             title=f"Test {i}",
-            url=f"https://example{i}.com",
+            url=_url(f"https://example{i}.com"),
             snippet=f"Snippet {i}",
             score=1.0 - i * 0.1,
         )
@@ -202,7 +210,7 @@ async def test_orchestrator_respects_semaphore(settings):
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_empty_list(settings):
+async def test_orchestrator_empty_list(settings: Settings) -> None:
     """Test orchestrator with empty search results."""
     mock_strategy = AsyncMock()
     orchestrator = ExtractionOrchestrator(mock_strategy, settings)
@@ -214,11 +222,11 @@ async def test_orchestrator_empty_list(settings):
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_logs_metrics(settings, caplog):
+async def test_orchestrator_logs_metrics(settings: Settings, caplog: LogCaptureFixture) -> None:
     """Test that orchestrator logs appropriate metrics."""
     mock_strategy = AsyncMock()
 
-    async def mock_extract(url: str, req_id: str) -> ExtractedContent:
+    async def mock_extract(url: HttpUrl, req_id: str) -> ExtractedContent:
         return ExtractedContent(
             url=url,
             content=f"Content for {url}",
@@ -235,13 +243,13 @@ async def test_orchestrator_logs_metrics(settings, caplog):
     search_results = [
         NormalizedSearchResult(
             title="Test 1",
-            url="https://example1.com",
+            url=_url("https://example1.com"),
             snippet="Snippet 1",
             score=0.9,
         ),
         NormalizedSearchResult(
             title="Test 2",
-            url="https://example2.com",
+            url=_url("https://example2.com"),
             snippet="Snippet 2",
             score=0.8,
         ),

@@ -1,9 +1,10 @@
 """SearXNG client for search orchestration."""
 import asyncio
 import random
-from typing import Optional
+from typing import Optional, cast
 
 import httpx
+from pydantic import HttpUrl
 import structlog
 
 from butterscout.config import Settings
@@ -61,10 +62,10 @@ class SearXNGClient:
             raise RuntimeError("SearXNG client not connected")
 
         # Build search params
-        params = {
+        params: dict[str, str] = {
             "q": request.query,
             "format": "json",
-            "safesearch": 0,
+            "safesearch": "0",
         }
 
         # Add language if specified
@@ -172,7 +173,7 @@ class SearXNGClient:
 
     def _normalize_results(
         self,
-        data: dict,
+        data: dict[str, object],
         max_results: int,
         allowed_domains: list[str],
         blocked_domains: list[str],
@@ -191,21 +192,33 @@ class SearXNGClient:
         Returns:
             List of normalized and filtered search results
         """
-        results = []
+        results: list[NormalizedSearchResult] = []
 
         # Note: We fetch more results initially to account for filtering
         # Fetch up to 2x max_results to ensure we have enough after filtering
-        fetch_limit = min(max_results * 2, len(data.get("results", [])))
-        raw_results = data.get("results", [])[:fetch_limit]
+        raw_results = cast(list[dict[str, object]], data.get("results", []))
+        fetch_limit = min(max_results * 2, len(raw_results))
+        raw_results = raw_results[:fetch_limit]
 
         for idx, item in enumerate(raw_results):
             try:
                 # Calculate score (SearXNG doesn't always provide scores)
                 # Use inverse of position as fallback
-                score = item.get("score", 1.0 / (idx + 1))
+                score_value = item.get("score")
+                score = float(score_value) if isinstance(score_value, (int, float, str)) else 1.0 / (
+                    idx + 1
+                )
 
                 # Validate URL scheme (only http/https allowed)
-                url = item["url"]  # Required field
+                url_obj = item.get("url")
+                if not isinstance(url_obj, str):
+                    logger.warning(
+                        "searxng_missing_url",
+                        request_id=request_id,
+                        position=idx,
+                    )
+                    continue
+                url = url_obj  # Required field
                 if not url.lower().startswith(("http://", "https://")):
                     logger.warning(
                         "searxng_invalid_url_scheme",
@@ -224,10 +237,17 @@ class SearXNGClient:
                     )
                     continue
 
+                title_val = item.get("title")
+                title = title_val if isinstance(title_val, str) else "No title"
+
+                content_val = item.get("content")
+                snippet = content_val if isinstance(content_val, str) else ""
+                snippet = snippet[:500]
+
                 result = NormalizedSearchResult(
-                    title=item.get("title", "No title"),
-                    url=url,
-                    snippet=item.get("content", "")[:500],  # Limit snippet length
+                    title=title,
+                    url=cast(HttpUrl, url),
+                    snippet=snippet,
                     score=float(score),
                     source="searxng",
                 )

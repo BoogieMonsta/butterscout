@@ -4,9 +4,10 @@ from __future__ import annotations
 import asyncio
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional
+from typing import Optional, cast
 
 import httpx
+from pydantic import HttpUrl
 import structlog
 import trafilatura
 
@@ -44,7 +45,7 @@ class TrafilaturaClient:
         if self.http_client:
             await self.http_client.aclose()
 
-    async def extract(self, url: str, request_id: str) -> ExtractedContent:
+    async def extract(self, url: HttpUrl, request_id: str) -> ExtractedContent:
         """
         Extract content using Trafilatura (fallback extractor).
 
@@ -71,7 +72,7 @@ class TrafilaturaClient:
             )
 
             # Fetch HTML
-            response = await self.http_client.get(url)
+            response = await self.http_client.get(str(url))
             response.raise_for_status()
             html = response.text
 

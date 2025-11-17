@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import time
-from typing import Optional
+from typing import Optional, cast
 
 import httpx
+from pydantic import HttpUrl
 import structlog
 
 from butterscout.config import Settings
@@ -43,7 +44,7 @@ class Crawl4AIClient:
         if self.client:
             await self.client.aclose()
 
-    async def extract(self, url: str, request_id: str) -> ExtractedContent:
+    async def extract(self, url: HttpUrl, request_id: str) -> ExtractedContent:
         """
         Extract content from URL using Crawl4AI.
 

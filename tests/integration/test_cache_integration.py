@@ -7,9 +7,11 @@ from __future__ import annotations
 
 import asyncio
 import time
+from typing import AsyncGenerator, cast
 
 import pytest
 import pytest_asyncio
+from pydantic import HttpUrl
 
 from butterscout.clients.redis_client import ValkeyClient
 from butterscout.config import Settings
@@ -24,6 +26,10 @@ from butterscout.models.responses import (
 from butterscout.services.cache_service import CacheService
 
 
+def _url(url_str: str) -> HttpUrl:
+    return cast(HttpUrl, url_str)
+
+
 @pytest.fixture
 def settings() -> Settings:
     """Create test settings."""
@@ -36,7 +42,7 @@ def settings() -> Settings:
 
 
 @pytest_asyncio.fixture
-async def redis_client(settings: Settings) -> ValkeyClient:
+async def redis_client(settings: Settings) -> AsyncGenerator[ValkeyClient, None]:
     """Create and connect Redis client."""
     client = ValkeyClient(settings)
     await client.connect()
@@ -62,7 +68,7 @@ async def test_cache_round_trip(cache_service: CacheService) -> None:
         results=[
             SearchResult(
                 title="Test Result",
-                url="https://example.com",
+                url=_url("https://example.com"),
                 snippet="Test snippet",
                 content="Test content",
                 metadata=ResultMetadata(
@@ -158,7 +164,7 @@ async def test_large_response_caching(cache_service: CacheService) -> None:
         results.append(
             SearchResult(
                 title=f"Result {i}",
-                url=f"https://example.com/{i}",
+                url=_url(f"https://example.com/{i}"),
                 snippet=f"Snippet for result {i}" * 10,  # Make it larger
                 content=f"Content for result {i}\n" * 100,  # ~2KB per result
                 metadata=ResultMetadata(
@@ -333,7 +339,7 @@ async def test_cache_performance_metrics(
         results=[
             SearchResult(
                 title="Test",
-                url="https://example.com",
+                url=_url("https://example.com"),
                 snippet="Test snippet",
                 content="Test content",
                 metadata=ResultMetadata(

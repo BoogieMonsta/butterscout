@@ -1,16 +1,23 @@
 """Tests for extraction clients."""
 from __future__ import annotations
 
+from typing import cast
+
 import httpx
 import pytest
 import respx
 from httpx import Response
+from pydantic import HttpUrl
 
 from butterscout.clients.crawl4ai_client import Crawl4AIClient
 from butterscout.clients.extraction_strategy import ExtractionStrategy
 from butterscout.clients.trafilatura_client import TrafilaturaClient
 from butterscout.config import Settings
 from butterscout.models.internal import ExtractedContent
+
+
+def _url(url_str: str) -> HttpUrl:
+    return cast(HttpUrl, url_str)
 
 
 @pytest.mark.asyncio
@@ -30,7 +37,7 @@ async def test_crawl4ai_success(settings: Settings) -> None:
     await client.connect()
 
     try:
-        result = await client.extract("https://example.com", "test-123")
+        result = await client.extract(_url("https://example.com"), "test-123")
 
         assert result.extraction_ok is True
         assert result.extracted_by == "crawl4ai"
@@ -46,11 +53,11 @@ async def test_extraction_strategy_fallback_used(monkeypatch: pytest.MonkeyPatch
     """Ensure fallback is invoked when Crawl4AI fails."""
 
     class FakeCrawl4AI:
-        async def extract(self, url: str, request_id: str) -> ExtractedContent:
+        async def extract(self, url: HttpUrl, request_id: str) -> ExtractedContent:
             raise RuntimeError("crawl failure")
 
     class FakeTrafilatura:
-        async def extract(self, url: str, request_id: str) -> ExtractedContent:
+        async def extract(self, url: HttpUrl, request_id: str) -> ExtractedContent:
             return ExtractedContent(
                 url=url,
                 content="fallback content",
@@ -68,10 +75,12 @@ async def test_extraction_strategy_fallback_used(monkeypatch: pytest.MonkeyPatch
     )
 
     strategy = ExtractionStrategy(
-        crawl4ai=FakeCrawl4AI(), trafilatura=FakeTrafilatura(), settings=settings
+        crawl4ai=cast(Crawl4AIClient, FakeCrawl4AI()),
+        trafilatura=cast(TrafilaturaClient, FakeTrafilatura()),
+        settings=settings,
     )
 
-    result = await strategy.extract("https://example.com", "req-1")
+    result = await strategy.extract(_url("https://example.com"), "req-1")
     assert result.extraction_ok is True
     assert result.extracted_by == "trafilatura"
     assert result.content == "fallback content"
@@ -82,7 +91,7 @@ async def test_extraction_strategy_no_fallback() -> None:
     """Ensure failure returns a failed result when fallback disabled or missing."""
 
     class FakeCrawl4AI:
-        async def extract(self, url: str, request_id: str) -> ExtractedContent:
+        async def extract(self, url: HttpUrl, request_id: str) -> ExtractedContent:
             raise RuntimeError("crawl failure")
 
     settings = Settings(
@@ -93,13 +102,15 @@ async def test_extraction_strategy_no_fallback() -> None:
     )
 
     strategy = ExtractionStrategy(
-        crawl4ai=FakeCrawl4AI(), trafilatura=None, settings=settings
+        crawl4ai=cast(Crawl4AIClient, FakeCrawl4AI()),
+        trafilatura=None,
+        settings=settings,
     )
 
-    result = await strategy.extract("https://example.com", "req-1")
+    result = await strategy.extract(_url("https://example.com"), "req-1")
     assert result.extraction_ok is False
     assert result.extracted_by == "none"
-    assert "crawl failure" in result.error
+    assert result.error is not None and "crawl failure" in result.error
 
 
 @pytest.mark.asyncio
@@ -115,7 +126,7 @@ async def test_crawl4ai_timeout(settings: Settings) -> None:
 
     try:
         with pytest.raises(TimeoutError):
-            await client.extract("https://example.com", "test-timeout")
+            await client.extract(_url("https://example.com"), "test-timeout")
     finally:
         await client.disconnect()
 
@@ -133,7 +144,7 @@ async def test_crawl4ai_http_error(settings: Settings) -> None:
 
     try:
         with pytest.raises(httpx.HTTPStatusError):
-            await client.extract("https://example.com", "test-error")
+            await client.extract(_url("https://example.com"), "test-error")
     finally:
         await client.disconnect()
 
@@ -156,7 +167,7 @@ async def test_crawl4ai_empty_content(settings: Settings) -> None:
 
     try:
         with pytest.raises(ValueError, match="empty content"):
-            await client.extract("https://example.com", "test-empty")
+            await client.extract(_url("https://example.com"), "test-empty")
     finally:
         await client.disconnect()
 
@@ -179,7 +190,7 @@ async def test_crawl4ai_whitespace_only_content(settings: Settings) -> None:
 
     try:
         with pytest.raises(ValueError, match="empty content"):
-            await client.extract("https://example.com", "test-whitespace")
+            await client.extract(_url("https://example.com"), "test-whitespace")
     finally:
         await client.disconnect()
 
@@ -198,7 +209,7 @@ async def test_crawl4ai_invalid_response_format(settings: Settings) -> None:
 
     try:
         with pytest.raises(ValueError, match="Invalid response format"):
-            await client.extract("https://example.com", "test-invalid-format")
+            await client.extract(_url("https://example.com"), "test-invalid-format")
     finally:
         await client.disconnect()
 
@@ -207,7 +218,8 @@ async def test_crawl4ai_invalid_response_format(settings: Settings) -> None:
 @respx.mock
 async def test_crawl4ai_health_check_success(settings: Settings) -> None:
     """Test Crawl4AI health check success."""
-    respx.get(f"{settings.BS_CRAWL4AI_URL}/health").mock(return_value=Response(200))
+    respx.get(
+        f"{settings.BS_CRAWL4AI_URL}/health").mock(return_value=Response(200))
 
     client = Crawl4AIClient(settings)
     await client.connect()
@@ -223,7 +235,8 @@ async def test_crawl4ai_health_check_success(settings: Settings) -> None:
 @respx.mock
 async def test_crawl4ai_health_check_failure(settings: Settings) -> None:
     """Test Crawl4AI health check failure."""
-    respx.get(f"{settings.BS_CRAWL4AI_URL}/health").mock(return_value=Response(503))
+    respx.get(
+        f"{settings.BS_CRAWL4AI_URL}/health").mock(return_value=Response(503))
 
     client = Crawl4AIClient(settings)
     await client.connect()
@@ -286,13 +299,14 @@ async def test_trafilatura_full_extraction(settings: Settings) -> None:
     </body></html>
     """
 
-    respx.get("https://example.com").mock(return_value=Response(200, text=html_content))
+    respx.get(
+        "https://example.com").mock(return_value=Response(200, text=html_content))
 
     client = TrafilaturaClient(settings)
     await client.connect()
 
     try:
-        result = await client.extract("https://example.com", "test-traf-123")
+        result = await client.extract(_url("https://example.com"), "test-traf-123")
         assert result.extraction_ok is True
         assert result.extracted_by == "trafilatura"
         assert result.word_count > 0
@@ -307,14 +321,15 @@ async def test_trafilatura_empty_html(settings: Settings) -> None:
     """Test Trafilatura with empty/whitespace HTML."""
     html_content = "<html><body></body></html>"
 
-    respx.get("https://example.com").mock(return_value=Response(200, text=html_content))
+    respx.get(
+        "https://example.com").mock(return_value=Response(200, text=html_content))
 
     client = TrafilaturaClient(settings)
     await client.connect()
 
     try:
         with pytest.raises(ValueError, match="empty content"):
-            await client.extract("https://example.com", "test-traf-empty")
+            await client.extract(_url("https://example.com"), "test-traf-empty")
     finally:
         await client.disconnect()
 
@@ -332,7 +347,7 @@ async def test_trafilatura_http_error(settings: Settings) -> None:
 
     try:
         with pytest.raises(httpx.HTTPStatusError):
-            await client.extract("https://example.com", "test-traf-error")
+            await client.extract(_url("https://example.com"), "test-traf-error")
     finally:
         await client.disconnect()
 
@@ -358,7 +373,7 @@ async def test_extraction_strategy_crawl4ai_success(settings: Settings) -> None:
     await trafilatura.connect()
 
     try:
-        result = await strategy.extract("https://example.com", "test-strategy-1")
+        result = await strategy.extract(_url("https://example.com"), "test-strategy-1")
         assert result.extraction_ok is True
         assert result.extracted_by == "crawl4ai"
     finally:
@@ -383,7 +398,8 @@ async def test_extraction_strategy_fallback_to_trafilatura(settings: Settings) -
     </article>
     </body></html>
     """
-    respx.get("https://example.com").mock(return_value=Response(200, text=html_content))
+    respx.get(
+        "https://example.com").mock(return_value=Response(200, text=html_content))
 
     crawl4ai = Crawl4AIClient(settings)
     trafilatura = TrafilaturaClient(settings)
@@ -393,7 +409,7 @@ async def test_extraction_strategy_fallback_to_trafilatura(settings: Settings) -
     await trafilatura.connect()
 
     try:
-        result = await strategy.extract("https://example.com", "test-strategy-fallback")
+        result = await strategy.extract(_url("https://example.com"), "test-strategy-fallback")
         assert result.extraction_ok is True
         assert result.extracted_by == "trafilatura"
     finally:
@@ -423,7 +439,7 @@ async def test_extraction_strategy_both_fail(settings: Settings) -> None:
     await trafilatura.connect()
 
     try:
-        result = await strategy.extract("https://example.com", "test-strategy-both-fail")
+        result = await strategy.extract(_url("https://example.com"), "test-strategy-both-fail")
         assert result.extraction_ok is False
         assert result.extracted_by == "none"
         assert result.error is not None
@@ -452,7 +468,7 @@ async def test_extraction_strategy_fallback_disabled(settings: Settings) -> None
     await trafilatura.connect()
 
     try:
-        result = await strategy.extract("https://example.com", "test-no-fallback")
+        result = await strategy.extract(_url("https://example.com"), "test-no-fallback")
         # Should return failed extraction without trying fallback
         assert result.extraction_ok is False
         assert result.extracted_by == "none"
@@ -478,7 +494,8 @@ async def test_extraction_strategy_crawl4ai_empty_content_fallback(settings: Set
     </article>
     </body></html>
     """
-    respx.get("https://example.com").mock(return_value=Response(200, text=html_content))
+    respx.get(
+        "https://example.com").mock(return_value=Response(200, text=html_content))
 
     crawl4ai = Crawl4AIClient(settings)
     trafilatura = TrafilaturaClient(settings)
@@ -488,7 +505,7 @@ async def test_extraction_strategy_crawl4ai_empty_content_fallback(settings: Set
     await trafilatura.connect()
 
     try:
-        result = await strategy.extract("https://example.com", "test-empty-fallback")
+        result = await strategy.extract(_url("https://example.com"), "test-empty-fallback")
         # Should succeed with Trafilatura after Crawl4AI returned empty
         assert result.extraction_ok is True
         assert result.extracted_by == "trafilatura"

@@ -1,18 +1,25 @@
 """Tests for result assembler."""
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
+from pydantic import HttpUrl
 
 from butterscout.models.internal import ExtractedContent, NormalizedSearchResult
 from butterscout.services.result_assembler import ResultAssembler
 
 
-def test_result_assembler_with_content():
+def _url(url_str: str) -> HttpUrl:
+    return cast(HttpUrl, url_str)
+
+
+def test_result_assembler_with_content() -> None:
     """Test combining search + extraction results with content."""
     search_results = [
         NormalizedSearchResult(
             title="Test Article",
-            url="https://example.com/article",
+            url=_url("https://example.com/article"),
             snippet="This is a test snippet",
             score=0.95,
         ),
@@ -20,7 +27,7 @@ def test_result_assembler_with_content():
 
     extracted_contents = [
         ExtractedContent(
-            url="https://example.com/article",
+            url=_url("https://example.com/article"),
             content="Full content here with many words in it",
             word_count=50,
             extracted_by="crawl4ai",
@@ -49,12 +56,12 @@ def test_result_assembler_with_content():
     assert results[0].scores.rank == 1
 
 
-def test_result_assembler_without_content():
+def test_result_assembler_without_content() -> None:
     """Test assembler excludes content when include_content=False."""
     search_results = [
         NormalizedSearchResult(
             title="Test Article",
-            url="https://example.com/article",
+            url=_url("https://example.com/article"),
             snippet="This is a test snippet",
             score=0.95,
         ),
@@ -62,7 +69,7 @@ def test_result_assembler_without_content():
 
     extracted_contents = [
         ExtractedContent(
-            url="https://example.com/article",
+            url=_url("https://example.com/article"),
             content="Full content here",
             word_count=50,
             extracted_by="crawl4ai",
@@ -84,12 +91,12 @@ def test_result_assembler_without_content():
     assert results[0].metadata.word_count == 50
 
 
-def test_result_assembler_failed_extraction():
+def test_result_assembler_failed_extraction() -> None:
     """Test assembler handles failed extraction."""
     search_results = [
         NormalizedSearchResult(
             title="Test Article",
-            url="https://example.com/article",
+            url=_url("https://example.com/article"),
             snippet="This is a test snippet",
             score=0.95,
         ),
@@ -97,7 +104,7 @@ def test_result_assembler_failed_extraction():
 
     extracted_contents = [
         ExtractedContent(
-            url="https://example.com/article",
+            url=_url("https://example.com/article"),
             content="",
             word_count=0,
             extracted_by="none",
@@ -123,24 +130,24 @@ def test_result_assembler_failed_extraction():
     assert results[0].snippet == "This is a test snippet"
 
 
-def test_result_assembler_multiple_results():
+def test_result_assembler_multiple_results() -> None:
     """Test assembler with multiple search results."""
     search_results = [
         NormalizedSearchResult(
             title="Article 1",
-            url="https://example1.com/article",
+            url=_url("https://example1.com/article"),
             snippet="Snippet 1",
             score=0.95,
         ),
         NormalizedSearchResult(
             title="Article 2",
-            url="https://example2.com/article",
+            url=_url("https://example2.com/article"),
             snippet="Snippet 2",
             score=0.85,
         ),
         NormalizedSearchResult(
             title="Article 3",
-            url="https://example3.com/article",
+            url=_url("https://example3.com/article"),
             snippet="Snippet 3",
             score=0.75,
         ),
@@ -148,7 +155,7 @@ def test_result_assembler_multiple_results():
 
     extracted_contents = [
         ExtractedContent(
-            url="https://example1.com/article",
+            url=_url("https://example1.com/article"),
             content="Content 1",
             word_count=30,
             extracted_by="crawl4ai",
@@ -156,7 +163,7 @@ def test_result_assembler_multiple_results():
             extraction_time_ms=100,
         ),
         ExtractedContent(
-            url="https://example2.com/article",
+            url=_url("https://example2.com/article"),
             content="",
             word_count=0,
             extracted_by="none",
@@ -165,7 +172,7 @@ def test_result_assembler_multiple_results():
             error="Failed",
         ),
         ExtractedContent(
-            url="https://example3.com/article",
+            url=_url("https://example3.com/article"),
             content="Content 3",
             word_count=40,
             extracted_by="trafilatura",
@@ -200,18 +207,18 @@ def test_result_assembler_multiple_results():
     assert results[2].scores.rank == 3
 
 
-def test_result_assembler_missing_extraction():
+def test_result_assembler_missing_extraction() -> None:
     """Test assembler when extraction is missing for a URL."""
     search_results = [
         NormalizedSearchResult(
             title="Article 1",
-            url="https://example1.com/article",
+            url=_url("https://example1.com/article"),
             snippet="Snippet 1",
             score=0.95,
         ),
         NormalizedSearchResult(
             title="Article 2",
-            url="https://example2.com/article",
+            url=_url("https://example2.com/article"),
             snippet="Snippet 2",
             score=0.85,
         ),
@@ -220,7 +227,7 @@ def test_result_assembler_missing_extraction():
     # Only one extraction result
     extracted_contents = [
         ExtractedContent(
-            url="https://example1.com/article",
+            url=_url("https://example1.com/article"),
             content="Content 1",
             word_count=30,
             extracted_by="crawl4ai",
@@ -243,12 +250,12 @@ def test_result_assembler_missing_extraction():
     assert results[1].content is None
 
 
-def test_result_assembler_domain_extraction():
+def test_result_assembler_domain_extraction() -> None:
     """Test that domains are correctly extracted from URLs."""
     search_results = [
         NormalizedSearchResult(
             title="Article",
-            url="https://blog.example.com/path/to/article",
+            url=_url("https://blog.example.com/path/to/article"),
             snippet="Snippet",
             score=0.95,
         ),
@@ -256,7 +263,7 @@ def test_result_assembler_domain_extraction():
 
     extracted_contents = [
         ExtractedContent(
-            url="https://blog.example.com/path/to/article",
+            url=_url("https://blog.example.com/path/to/article"),
             content="Content",
             word_count=30,
             extracted_by="crawl4ai",

@@ -1,9 +1,10 @@
 """Result assembler for combining search and extraction results."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, cast
 from urllib.parse import urlparse
 
+from pydantic import HttpUrl
 import structlog
 
 if TYPE_CHECKING:
@@ -45,21 +46,30 @@ class ResultAssembler:
             url_str = str(search_result.url)
             extracted = content_map.get(url_str)
 
+            def _normalized_extractor(value: str | None) -> Literal["crawl4ai", "trafilatura", "none"]:
+                if value in ("crawl4ai", "trafilatura"):
+                    return cast(Literal["crawl4ai", "trafilatura"], value)
+                return "none"
+
             # Determine extraction status
             if extracted and extracted.extraction_ok:
+                extracted_by: Literal["crawl4ai", "trafilatura", "none"] = _normalized_extractor(
+                    extracted.extracted_by
+                )
                 extraction_metadata = ResultMetadata(
                     domain=urlparse(url_str).netloc,
                     word_count=extracted.word_count,
-                    extracted_by=extracted.extracted_by,
+                    extracted_by=extracted_by,
                     extraction_ok=True,
                 )
                 content = extracted.content if include_content else None
             else:
                 # Extraction failed or not attempted
+                extracted_by = _normalized_extractor(extracted.extracted_by if extracted else None)
                 extraction_metadata = ResultMetadata(
                     domain=urlparse(url_str).netloc,
                     word_count=0,
-                    extracted_by="none" if not extracted else extracted.extracted_by,
+                    extracted_by=extracted_by,
                     extraction_ok=False,
                 )
                 content = None
@@ -67,7 +77,7 @@ class ResultAssembler:
             # Create final result
             result = SearchResult(
                 title=search_result.title,
-                url=url_str,
+                url=search_result.url,
                 snippet=search_result.snippet,
                 content=content,
                 metadata=extraction_metadata,
@@ -75,7 +85,7 @@ class ResultAssembler:
                     search_score=search_result.score,
                     rank=idx + 1,
                 ),
-                source=search_result.source,
+                source=cast(Literal["searxng"], search_result.source),
             )
 
             results.append(result)

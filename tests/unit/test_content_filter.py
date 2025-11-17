@@ -1,18 +1,25 @@
 """Tests for content quality filter."""
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
+from pydantic import HttpUrl
 
 from butterscout.models.responses import ResultMetadata, ResultScores, SearchResult
 from butterscout.utils.content_filter import MIN_WORD_COUNT, filter_low_quality_results
 
 
-def test_filter_keeps_good_content():
+def _url(url_str: str) -> HttpUrl:
+    return cast(HttpUrl, url_str)
+
+
+def test_filter_keeps_good_content() -> None:
     """Test that filter keeps results with sufficient word count."""
     results = [
         SearchResult(
             title="Good Article",
-            url="https://example.com/article",
+            url=_url("https://example.com/article"),
             snippet="This is a good article",
             content="This is good content with more than ten words here to test the filter.",
             metadata=ResultMetadata(
@@ -32,12 +39,12 @@ def test_filter_keeps_good_content():
     assert filtered[0].metadata.word_count == 50
 
 
-def test_filter_removes_short_content():
+def test_filter_removes_short_content() -> None:
     """Test that filter removes results with very short content."""
     results = [
         SearchResult(
             title="Short Article",
-            url="https://example.com/article",
+            url=_url("https://example.com/article"),
             snippet="This is a short article",
             content="Too short",
             metadata=ResultMetadata(
@@ -56,12 +63,12 @@ def test_filter_removes_short_content():
     assert len(filtered) == 0
 
 
-def test_filter_keeps_failed_extractions():
+def test_filter_keeps_failed_extractions() -> None:
     """Test that filter keeps results where extraction failed (still have snippet)."""
     results = [
         SearchResult(
             title="Failed Extraction",
-            url="https://example.com/article",
+            url=_url("https://example.com/article"),
             snippet="This is a useful snippet that should be kept",
             content=None,
             metadata=ResultMetadata(
@@ -81,12 +88,12 @@ def test_filter_keeps_failed_extractions():
     assert filtered[0].metadata.extraction_ok is False
 
 
-def test_filter_mixed_results():
+def test_filter_mixed_results() -> None:
     """Test filter with mix of good, bad, and failed extractions."""
     results = [
         SearchResult(
             title="Good Article",
-            url="https://example1.com/article",
+            url=_url("https://example1.com/article"),
             snippet="Good snippet",
             content="This is good content with many words here to pass the filter test successfully.",
             metadata=ResultMetadata(
@@ -100,7 +107,7 @@ def test_filter_mixed_results():
         ),
         SearchResult(
             title="Short Article",
-            url="https://example2.com/article",
+            url=_url("https://example2.com/article"),
             snippet="Short snippet",
             content="Too short",
             metadata=ResultMetadata(
@@ -114,7 +121,7 @@ def test_filter_mixed_results():
         ),
         SearchResult(
             title="Failed Article",
-            url="https://example3.com/article",
+            url=_url("https://example3.com/article"),
             snippet="Failed snippet",
             content=None,
             metadata=ResultMetadata(
@@ -128,7 +135,7 @@ def test_filter_mixed_results():
         ),
         SearchResult(
             title="Another Good Article",
-            url="https://example4.com/article",
+            url=_url("https://example4.com/article"),
             snippet="Another good snippet",
             content="This is another good article with sufficient content to pass the minimum word count.",
             metadata=ResultMetadata(
@@ -152,12 +159,12 @@ def test_filter_mixed_results():
     assert str(filtered[2].url) == "https://example4.com/article"
 
 
-def test_filter_boundary_word_count():
+def test_filter_boundary_word_count() -> None:
     """Test filter at the boundary of MIN_WORD_COUNT."""
     results = [
         SearchResult(
             title="At Minimum",
-            url="https://example1.com/article",
+            url=_url("https://example1.com/article"),
             snippet="At minimum",
             content="This has exactly ten words in it to test boundary.",
             metadata=ResultMetadata(
@@ -171,7 +178,7 @@ def test_filter_boundary_word_count():
         ),
         SearchResult(
             title="Below Minimum",
-            url="https://example2.com/article",
+            url=_url("https://example2.com/article"),
             snippet="Below minimum",
             content="This has nine words to test boundary case.",
             metadata=ResultMetadata(
@@ -191,21 +198,21 @@ def test_filter_boundary_word_count():
     assert filtered[0].metadata.word_count == MIN_WORD_COUNT
 
 
-def test_filter_empty_input():
+def test_filter_empty_input() -> None:
     """Test filter with empty list."""
-    results = []
+    results: list[SearchResult] = []
 
     filtered = filter_low_quality_results(results, "test-123")
 
     assert len(filtered) == 0
 
 
-def test_filter_none_word_count():
+def test_filter_none_word_count() -> None:
     """Test filter handles None word_count gracefully."""
     results = [
         SearchResult(
             title="Article",
-            url="https://example.com/article",
+            url=_url("https://example.com/article"),
             snippet="Snippet",
             content="Some content",
             metadata=ResultMetadata(

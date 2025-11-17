@@ -9,7 +9,7 @@ from butterscout.models.requests import SearchRequest, SearchOptions
 from butterscout.utils.domain_filter import is_domain_allowed
 
 
-async def demo_successful_search():
+async def demo_successful_search() -> None:
     """Demonstrate successful search with normalized results."""
     print("\n" + "=" * 80)
     print("DEMO 1: Successful Search with Normalized Results")
@@ -75,7 +75,7 @@ async def demo_successful_search():
             await client.disconnect()
 
 
-async def demo_retry_on_timeout():
+async def demo_retry_on_timeout() -> None:
     """Demonstrate retry logic on timeout."""
     print("\n" + "=" * 80)
     print("DEMO 2: Retry Logic on Timeout")
@@ -127,7 +127,7 @@ async def demo_retry_on_timeout():
             await client.disconnect()
 
 
-async def demo_retry_on_5xx():
+async def demo_retry_on_5xx() -> None:
     """Demonstrate retry logic on 5xx errors."""
     print("\n" + "=" * 80)
     print("DEMO 3: Retry Logic on 5xx Server Errors")
@@ -179,7 +179,7 @@ async def demo_retry_on_5xx():
             await client.disconnect()
 
 
-async def demo_no_retry_on_4xx():
+async def demo_no_retry_on_4xx() -> None:
     """Demonstrate that 4xx errors are not retried."""
     print("\n" + "=" * 80)
     print("DEMO 4: No Retry on 4xx Client Errors")
@@ -209,13 +209,14 @@ async def demo_no_retry_on_4xx():
             try:
                 await client.search(request, request_id="demo-004")
             except httpx.HTTPStatusError as e:
-                print(f"\n✓ Raised exception immediately: {e.response.status_code} {e.response.reason_phrase}")
+                print(
+                    f"\n✓ Raised exception immediately: {e.response.status_code} {e.response.reason_phrase}")
 
         finally:
             await client.disconnect()
 
 
-def demo_domain_filtering():
+def demo_domain_filtering() -> None:
     """Demonstrate domain filtering functionality."""
     print("\n" + "=" * 80)
     print("DEMO 5: Domain Filtering")
@@ -258,7 +259,7 @@ def demo_domain_filtering():
         print(f"  {status}: {url}")
 
 
-async def demo_missing_fields():
+async def demo_missing_fields() -> None:
     """Demonstrate handling of missing fields in search results."""
     print("\n" + "=" * 80)
     print("DEMO 6: Handling Missing Fields with Fallbacks")
@@ -307,10 +308,13 @@ async def demo_missing_fields():
 
             for i, result in enumerate(results, 1):
                 print(f"Result {i}:")
-                print(f"  Title: {result.title} {'(fallback)' if result.title == 'No title' else ''}")
+                print(
+                    f"  Title: {result.title} {'(fallback)' if result.title == 'No title' else ''}")
                 print(f"  URL: {result.url}")
-                print(f"  Score: {result.score:.4f} {'(position-based)' if result.score == 1.0 / i else ''}")
-                print(f"  Snippet: '{result.snippet}' {'(empty fallback)' if not result.snippet else ''}")
+                print(
+                    f"  Score: {result.score:.4f} {'(position-based)' if result.score == 1.0 / i else ''}")
+                print(
+                    f"  Snippet: '{result.snippet}' {'(empty fallback)' if not result.snippet else ''}")
                 print()
 
             print("✓ Missing fields handled gracefully with fallbacks")
@@ -319,7 +323,7 @@ async def demo_missing_fields():
             await client.disconnect()
 
 
-async def main():
+async def main() -> None:
     """Run all demonstrations."""
     print("\n" + "=" * 80)
     print("BUTTERSCOUT - SearXNG CLIENT DEMONSTRATION")

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 import valkey.asyncio as valkey
 
@@ -208,3 +208,112 @@ class ValkeyClient:
                 "Call 'await client.connect()' before using Valkey operations."
             )
         return await self.valkey.ttl(key)  # type: ignore
+
+    # Sorted set operations for rate limiting
+
+    async def zadd(self, key: str, mapping: dict[str, float]) -> int:
+        """Add members to sorted set with scores.
+
+        Args:
+            key: Valkey sorted set key
+            mapping: Dictionary of {member: score}
+
+        Returns:
+            Number of members added (not updated)
+
+        Raises:
+            RuntimeError: If Valkey is not connected
+        """
+        if not self.valkey:
+            raise RuntimeError(
+                "Valkey client not connected. "
+                "Call 'await client.connect()' before using Valkey operations."
+            )
+        return await self.valkey.zadd(key, mapping)  # type: ignore
+
+    async def zcard(self, key: str) -> int:
+        """Count members in sorted set.
+
+        Args:
+            key: Valkey sorted set key
+
+        Returns:
+            Number of members in sorted set
+
+        Raises:
+            RuntimeError: If Valkey is not connected
+        """
+        if not self.valkey:
+            raise RuntimeError(
+                "Valkey client not connected. "
+                "Call 'await client.connect()' before using Valkey operations."
+            )
+        return await self.valkey.zcard(key)  # type: ignore
+
+    async def zrange(
+        self, key: str, start: int, end: int, withscores: bool = False
+    ) -> list[Any]:
+        """Get range of members from sorted set.
+
+        Args:
+            key: Valkey sorted set key
+            start: Start index (0-based)
+            end: End index (-1 for last)
+            withscores: Include scores in result
+
+        Returns:
+            List of members (and scores if withscores=True)
+
+        Raises:
+            RuntimeError: If Valkey is not connected
+        """
+        if not self.valkey:
+            raise RuntimeError(
+                "Valkey client not connected. "
+                "Call 'await client.connect()' before using Valkey operations."
+            )
+        return await self.valkey.zrange(key, start, end, withscores=withscores)  # type: ignore
+
+    async def zremrangebyscore(
+        self, key: str, min_score: float, max_score: float
+    ) -> int:
+        """Remove members from sorted set by score range.
+
+        Args:
+            key: Valkey sorted set key
+            min_score: Minimum score (inclusive)
+            max_score: Maximum score (inclusive)
+
+        Returns:
+            Number of members removed
+
+        Raises:
+            RuntimeError: If Valkey is not connected
+        """
+        if not self.valkey:
+            raise RuntimeError(
+                "Valkey client not connected. "
+                "Call 'await client.connect()' before using Valkey operations."
+            )
+        return await self.valkey.zremrangebyscore(key, min_score, max_score)  # type: ignore
+
+    async def eval(self, script: str, num_keys: int, *args: Any) -> Any:
+        """Execute a Lua script on Valkey server.
+
+        Args:
+            script: Lua script to execute
+            num_keys: Number of keys in the script
+            *args: Keys and arguments for the script
+
+        Returns:
+            Script execution result
+
+        Raises:
+            RuntimeError: If Valkey is not connected
+        """
+        if not self.valkey:
+            raise RuntimeError(
+                "Valkey client not connected. "
+                "Call 'await client.connect()' before using Valkey operations."
+            )
+        return await self.valkey.eval(script, num_keys, *args)  # type: ignore

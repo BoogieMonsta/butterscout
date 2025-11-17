@@ -1,7 +1,10 @@
 """Demo of extraction orchestrator with graceful degradation."""
 import asyncio
 import time
+from typing import cast
 from unittest.mock import AsyncMock
+
+from pydantic import HttpUrl
 
 from butterscout.config import Settings
 from butterscout.models.internal import ExtractedContent, NormalizedSearchResult
@@ -10,7 +13,11 @@ from butterscout.services.result_assembler import ResultAssembler
 from butterscout.utils.content_filter import filter_low_quality_results
 
 
-async def main():
+def _url(url_str: str) -> HttpUrl:
+    return cast(HttpUrl, url_str)
+
+
+async def main() -> None:
     """Demonstrate extraction orchestrator capabilities."""
     print("=" * 80)
     print("Extraction Orchestrator Demo - Graceful Degradation")
@@ -32,7 +39,7 @@ async def main():
     # Mock extraction strategy to simulate various outcomes
     mock_strategy = AsyncMock()
 
-    async def mock_extract(url: str, req_id: str) -> ExtractedContent:
+    async def mock_extract(url: HttpUrl, req_id: str) -> ExtractedContent:
         url_str = str(url)
 
         # Simulate different extraction scenarios
@@ -86,61 +93,61 @@ async def main():
     search_results = [
         NormalizedSearchResult(
             title="High Quality Article 1",
-            url="https://example1.com/article",
+            url=_url("https://example1.com/article"),
             snippet="Great article about Python",
             score=0.95,
         ),
         NormalizedSearchResult(
             title="High Quality Article 2",
-            url="https://example2.com/article",
+            url=_url("https://example2.com/article"),
             snippet="Comprehensive guide to async",
             score=0.92,
         ),
         NormalizedSearchResult(
             title="Timed Out Site",
-            url="https://timeout.com/article",
+            url=_url("https://timeout.com/article"),
             snippet="Slow loading page",
             score=0.88,
         ),
         NormalizedSearchResult(
             title="Blocked Site",
-            url="https://blocked.com/article",
+            url=_url("https://blocked.com/article"),
             snippet="This site blocks scrapers",
             score=0.85,
         ),
         NormalizedSearchResult(
             title="Short Content",
-            url="https://short.com/article",
+            url=_url("https://short.com/article"),
             snippet="Very brief article",
             score=0.82,
         ),
         NormalizedSearchResult(
             title="High Quality Article 3",
-            url="https://example3.com/article",
+            url=_url("https://example3.com/article"),
             snippet="Deep dive into concurrency",
             score=0.80,
         ),
         NormalizedSearchResult(
             title="High Quality Article 4",
-            url="https://example4.com/article",
+            url=_url("https://example4.com/article"),
             snippet="Best practices for orchestration",
             score=0.78,
         ),
         NormalizedSearchResult(
             title="Another Timeout",
-            url="https://timeout2.com/article",
+            url=_url("https://timeout2.com/article"),
             snippet="Another slow site",
             score=0.75,
         ),
         NormalizedSearchResult(
             title="High Quality Article 5",
-            url="https://example5.com/article",
+            url=_url("https://example5.com/article"),
             snippet="Advanced async patterns",
             score=0.72,
         ),
         NormalizedSearchResult(
             title="High Quality Article 6",
-            url="https://example6.com/article",
+            url=_url("https://example6.com/article"),
             snippet="Performance optimization guide",
             score=0.70,
         ),
@@ -181,7 +188,8 @@ async def main():
 
     # Step 3: Filter low quality
     print("🔍 Filtering low-quality content...")
-    filtered_results = filter_low_quality_results(assembled_results, "demo-123")
+    filtered_results = filter_low_quality_results(
+        assembled_results, "demo-123")
     removed = len(assembled_results) - len(filtered_results)
     print(f"   Removed {removed} low-quality results")
     print(f"   Final result count: {len(filtered_results)}")
