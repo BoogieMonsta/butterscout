@@ -52,10 +52,16 @@ def generate_rate_limit_key(identifier: str, key_type: str = "ip") -> str:
     return f"bs:ratelimit:{key_type}:{hashed}"
 
 
-def generate_global_rate_limit_key() -> str:
+def generate_global_rate_limit_key(limit: int | None = None) -> str:
     """Generate global rate limit key.
 
+    Args:
+        limit: Optional limit value to namespace the global key.
+
     Returns:
-        Global rate limit key: bs:ratelimit:global
+        Global rate limit key: bs:ratelimit:global[:<limit>]
     """
-    return "bs:ratelimit:global"
+    base_key = "bs:ratelimit:global"
+    if limit is not None:
+        return f"{base_key}:{limit}"
+    return base_key

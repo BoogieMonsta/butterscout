@@ -6,7 +6,10 @@ import structlog
 
 from butterscout.clients.redis_client import ValkeyClient
 from butterscout.config import Settings
-from butterscout.utils.redis_keys import generate_rate_limit_key
+from butterscout.utils.redis_keys import (
+    generate_global_rate_limit_key,
+    generate_rate_limit_key,
+)
 
 logger = structlog.get_logger()
 
@@ -105,6 +108,7 @@ class RateLimiter:
         key_type: str,
         limit_per_hour: int,
         request_id: str,
+        rate_limit_key: Optional[str] = None,
     ) -> Tuple[bool, Optional[int], int, int]:
         """Check rate limit using sliding window algorithm with atomic operations.
 
@@ -117,7 +121,7 @@ class RateLimiter:
         Returns:
             Tuple of (is_allowed, retry_after_seconds, remaining, reset_timestamp)
         """
-        rate_limit_key = generate_rate_limit_key(identifier, key_type)
+        rate_limit_key = rate_limit_key or generate_rate_limit_key(identifier, key_type)
         window_seconds = 3600  # 1 hour
         current_time = int(time.time())
         cutoff_time = current_time - window_seconds
@@ -223,4 +227,5 @@ class RateLimiter:
             "global",
             self.settings.BS_GLOBAL_RATE_LIMIT_PER_HOUR,
             request_id,
+            rate_limit_key=generate_global_rate_limit_key(self.settings.BS_GLOBAL_RATE_LIMIT_PER_HOUR),
         )

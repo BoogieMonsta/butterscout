@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     BS_ALLOWED_DOMAINS: str = ""  # comma-separated
     BS_BLOCKED_DOMAINS: str = ""  # comma-separated
 
+    # CORS configuration
+    BS_CORS_ORIGINS: str = "*"  # comma-separated origins or "*" for all
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True,
@@ -72,6 +75,13 @@ class Settings(BaseSettings):
             raise ValueError("BS_REQUEST_TIMEOUT_MS must be between 1 and 6000 ms")
         return value
 
+    @field_validator("BS_MAX_CONCURRENT_EXTRACTIONS")
+    @classmethod
+    def validate_max_concurrent_extractions(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("BS_MAX_CONCURRENT_EXTRACTIONS must be at least 1")
+        return value
+
     @property
     def allowed_domains_list(self) -> list[str]:
         return [d.strip() for d in self.BS_ALLOWED_DOMAINS.split(",") if d.strip()]
@@ -79,6 +89,13 @@ class Settings(BaseSettings):
     @property
     def blocked_domains_list(self) -> list[str]:
         return [d.strip() for d in self.BS_BLOCKED_DOMAINS.split(",") if d.strip()]
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """Parse CORS origins from comma-separated string."""
+        if self.BS_CORS_ORIGINS == "*":
+            return ["*"]
+        return [origin.strip() for origin in self.BS_CORS_ORIGINS.split(",") if origin.strip()]
 
 
 def validate_settings(settings: Settings) -> None:

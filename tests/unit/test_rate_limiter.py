@@ -11,6 +11,7 @@ from butterscout.clients.redis_client import ValkeyClient
 from butterscout.config import Settings
 from butterscout.services.rate_limiter import RateLimiter
 from butterscout.utils.rate_limit_headers import generate_rate_limit_headers
+from butterscout.utils.redis_keys import generate_global_rate_limit_key
 
 
 @pytest.fixture
@@ -87,6 +88,12 @@ async def test_rate_limit_allows_within_limit(settings: Settings) -> None:
     await client.connect()
 
     try:
+        # Ensure clean slate
+        from butterscout.utils.redis_keys import generate_global_rate_limit_key
+
+        global_key = generate_global_rate_limit_key(settings.BS_GLOBAL_RATE_LIMIT_PER_HOUR)
+        await client.delete(global_key)
+
         limiter = RateLimiter(client, settings)
 
         # Make requests within limit
@@ -117,6 +124,9 @@ async def test_rate_limit_blocks_over_limit(settings: Settings) -> None:
 
     client = ValkeyClient(settings)
     await client.connect()
+
+    global_key = generate_global_rate_limit_key(settings.BS_GLOBAL_RATE_LIMIT_PER_HOUR)
+    await client.delete(global_key)
 
     try:
         limiter = RateLimiter(client, settings)
@@ -162,6 +172,11 @@ async def test_api_key_higher_limit(settings: Settings) -> None:
 
     client = ValkeyClient(settings)
     await client.connect()
+
+    from butterscout.utils.redis_keys import generate_global_rate_limit_key
+
+    global_key = generate_global_rate_limit_key(settings.BS_GLOBAL_RATE_LIMIT_PER_HOUR)
+    await client.delete(global_key)
 
     try:
         limiter = RateLimiter(client, settings)
@@ -286,6 +301,11 @@ async def test_global_rate_limit(settings: Settings) -> None:
     client = ValkeyClient(settings)
     await client.connect()
 
+    from butterscout.utils.redis_keys import generate_global_rate_limit_key
+
+    global_key = generate_global_rate_limit_key(settings.BS_GLOBAL_RATE_LIMIT_PER_HOUR)
+    await client.delete(global_key)
+
     try:
         limiter = RateLimiter(client, settings)
 
@@ -308,9 +328,6 @@ async def test_global_rate_limit(settings: Settings) -> None:
         assert limit == 5  # Global limit
 
         # Clean up
-        from butterscout.utils.redis_keys import generate_global_rate_limit_key
-
-        global_key = generate_global_rate_limit_key()
         await client.delete(global_key)
 
         # Clean up individual IP keys

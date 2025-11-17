@@ -51,6 +51,17 @@ def test_settings_validation_max_results_cap() -> None:
         )
 
 
+def test_settings_validation_max_concurrent_extractions_minimum() -> None:
+    """Test that BS_MAX_CONCURRENT_EXTRACTIONS must be at least 1."""
+    with pytest.raises(ValidationError):
+        Settings(
+            BS_SEARXNG_URL="http://searxng:8080",
+            BS_CRAWL4AI_URL="http://crawl4ai:11235",
+            BS_REDIS_URL="redis://localhost:6379/0",
+            BS_MAX_CONCURRENT_EXTRACTIONS=0,
+        )
+
+
 def test_settings_load_valid() -> None:
     """Test that valid settings load correctly."""
     settings = Settings(
@@ -86,3 +97,36 @@ def test_allowed_blocked_domains_empty() -> None:
     )
     assert settings.allowed_domains_list == []
     assert settings.blocked_domains_list == []
+
+
+def test_cors_origins_wildcard() -> None:
+    """Test that CORS origins defaults to wildcard."""
+    settings = Settings(
+        BS_SEARXNG_URL="http://searxng:8080",
+        BS_CRAWL4AI_URL="http://crawl4ai:11235",
+        BS_REDIS_URL="redis://localhost:6379/0",
+    )
+    assert settings.BS_CORS_ORIGINS == "*"
+    assert settings.cors_origins_list == ["*"]
+
+
+def test_cors_origins_list_parsing() -> None:
+    """Test that comma-separated CORS origins are parsed correctly."""
+    settings = Settings(
+        BS_SEARXNG_URL="http://searxng:8080",
+        BS_CRAWL4AI_URL="http://crawl4ai:11235",
+        BS_REDIS_URL="redis://localhost:6379/0",
+        BS_CORS_ORIGINS="http://localhost:3000, https://example.com ",
+    )
+    assert settings.cors_origins_list == ["http://localhost:3000", "https://example.com"]
+
+
+def test_cors_origins_single_origin() -> None:
+    """Test that single CORS origin works correctly."""
+    settings = Settings(
+        BS_SEARXNG_URL="http://searxng:8080",
+        BS_CRAWL4AI_URL="http://crawl4ai:11235",
+        BS_REDIS_URL="redis://localhost:6379/0",
+        BS_CORS_ORIGINS="https://app.example.com",
+    )
+    assert settings.cors_origins_list == ["https://app.example.com"]

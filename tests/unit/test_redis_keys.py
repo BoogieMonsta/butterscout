@@ -217,3 +217,10 @@ def test_global_rate_limit_key_stability() -> None:
 
     assert key1 == key2
     assert key1 == "bs:ratelimit:global"
+
+
+def test_global_rate_limit_key_namespaced_by_limit() -> None:
+    """Global rate limit key can be namespaced by limit to avoid collisions."""
+    key = generate_global_rate_limit_key(5)
+    assert key == "bs:ratelimit:global:5"
+    assert key != generate_global_rate_limit_key()
