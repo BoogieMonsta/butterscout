@@ -391,6 +391,7 @@ _Health check endpoint for monitoring / orchestration._
 - Basic instructions:
   - `docker compose up`
   - Visit [http://localhost:8000/docs](http://localhost:8000/docs) for OpenAPI UI.
+- Provide `.env.example` for easy bootstrap.
 
 ### 7.2 Configuration (env vars / settings)
 - `BS_API_KEY` (optional): if set, require `x-api-key` to match.
