@@ -4,21 +4,21 @@
 
 ## Task-Specific Checks
 
-- [ ] Sliding window algorithm implemented correctly (Redis ZSET)
+- [ ] Sliding window algorithm implemented correctly (Valkey/Redis ZSET)
 - [ ] Old entries removed before counting (ZREMRANGEBYSCORE)
 - [ ] Rate limit tiers work (IP, API key, global)
 - [ ] Retry-after calculated correctly
 - [ ] Rate limit headers generated correctly
-- [ ] Fail-open on Redis errors (don't block traffic)
+- [ ] Fail-open on Valkey/Redis errors (don't block traffic)
 - [ ] Key expiration set (window + buffer)
 
 ## Critical Issues
 
 1. **Wrong Algorithm** - Must use sliding window, not token bucket
 2. **No Cleanup** - Old entries not removed, counts grow forever
-3. **Fail Closed** - Redis errors block all traffic
+3. **Fail Closed** - Valkey/Redis errors block all traffic
 4. **Incorrect Retry-After** - Wrong calculation breaks clients
-5. **Missing Expiration** - Keys never expire, fill Redis
+5. **Missing Expiration** - Keys never expire, fill Valkey
 6. **Race Conditions** - Concurrent checks not handled atomically
 
 ## Testing
@@ -27,7 +27,7 @@
 - [ ] Test: Blocks requests over limit
 - [ ] Test: Retry-after calculated correctly
 - [ ] Test: API key gets higher limit than IP
-- [ ] Test: Redis errors don't block requests
+- [ ] Test: Valkey/Redis errors don't block requests
 - [ ] Test: Headers generated correctly
 
 ## Fix Priority

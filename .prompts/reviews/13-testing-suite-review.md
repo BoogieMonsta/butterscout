@@ -13,7 +13,7 @@
 - [ ] Coverage target met (≥80%)
 - [ ] All critical paths tested
 - [ ] Edge cases covered (empty input, errors, timeouts)
-- [ ] Integration tests use real dependencies (Redis)
+- [ ] Integration tests use real dependencies (Valkey/Redis)
 - [ ] Test factories for common test data
 - [ ] Tests are independent (no shared state)
 - [ ] Tests clean up after themselves
@@ -23,7 +23,7 @@
 1. **Missing Coverage** - Critical code paths not tested
 2. **Flaky Tests** - Tests fail randomly due to timing/state
 3. **Blocking Tests** - Using sync code in async tests
-4. **No Cleanup** - Tests leave data in Redis/filesystem
+4. **No Cleanup** - Tests leave data in Valkey/filesystem
 5. **Wrong Mocking** - Using MagicMock for async functions (should be AsyncMock)
 6. **Missing Fixtures** - Duplicated setup code across tests
 7. **Integration Tests Fail** - Tests assume services available without checking
@@ -36,7 +36,7 @@
 - [ ] Test: `make test` passes
 - [ ] Test: Coverage ≥80%
 - [ ] Test: Unit tests < 10s
-- [ ] Test: Integration tests work with Redis
+- [ ] Test: Integration tests work with Valkey/Redis
 - [ ] Test: Tests pass in isolation (run individually)
 - [ ] Test: Tests pass in any order (pytest --random-order)
 

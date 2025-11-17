@@ -29,7 +29,7 @@ def test_settings_validation_invalid_crawl4ai_url() -> None:
 
 
 def test_settings_validation_invalid_redis_url() -> None:
-    """Test that invalid Redis URL is rejected."""
+    """Test that invalid Valkey/Redis URL is rejected."""
     with pytest.raises(ValueError, match="BS_REDIS_URL must start with"):
         validate_settings(
             Settings(

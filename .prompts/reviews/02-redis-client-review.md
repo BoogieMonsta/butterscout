@@ -1,14 +1,14 @@
-# Code Review: Redis Client & Utilities
+# Code Review: Valkey/Redis Client & Utilities
 
-**Role:** You are a senior backend engineer specializing in Redis, async Python patterns, and distributed caching strategies.
+**Role:** You are a senior backend engineer specializing in Valkey/Redis, async Python patterns, and distributed caching strategies.
 
 ## Task-Specific Checks
 
-### Redis Client Implementation
+### Valkey/Redis Client Implementation
 - [ ] Connection pool configured with appropriate limits (max_connections=20)
 - [ ] Async/await used correctly throughout
 - [ ] Connection lifecycle managed properly (connect/disconnect)
-- [ ] All Redis operations check if client is connected
+- [ ] All Valkey/Redis operations check if client is connected
 - [ ] Error handling doesn't swallow exceptions silently
 - [ ] Timeout configurations appropriate for use case
 - [ ] `decode_responses=True` set for string handling
@@ -29,9 +29,9 @@
 - [ ] Connection errors logged with context
 
 ### Error Handling
-- [ ] Specific exceptions for Redis connection failures
+- [ ] Specific exceptions for Valkey/Redis connection failures
 - [ ] Clear error messages with troubleshooting hints
-- [ ] Operations don't fail silently on Redis errors
+- [ ] Operations don't fail silently on Valkey/Redis errors
 - [ ] Retry logic not needed (fail fast for cache)
 
 ## Critical Issues to Watch For
@@ -39,17 +39,17 @@
 1. **Connection Leaks** - Connections not properly closed lead to resource exhaustion
 2. **Non-Deterministic Keys** - Unstable cache keys break caching effectiveness
 3. **Missing Connection Checks** - Operations fail with cryptic errors if not connected
-4. **Synchronous Blocking** - Using sync Redis client in async code blocks event loop
-5. **Incorrect Async Usage** - Missing `await` on async Redis operations
-6. **Poor Error Handling** - Swallowing Redis errors makes debugging impossible
+4. **Synchronous Blocking** - Using sync Valkey/Redis client in async code blocks event loop
+5. **Incorrect Async Usage** - Missing `await` on async Valkey/Redis operations
+6. **Poor Error Handling** - Swallowing Valkey/Redis errors makes debugging impossible
 7. **Key Collision Risk** - Weak hashing or missing namespaces cause key conflicts
 8. **Memory Leaks** - Not closing connections in exception paths
-9. **Missing TTL** - Keys without expiration can fill Redis memory
+9. **Missing TTL** - Keys without expiration can fill Valkey
 10. **Race Conditions** - Concurrent access to connection pool not handled
 
 ## Testing Verification
 
-- [ ] Tests pass with real Redis connection
+- [ ] Tests pass with real Valkey/Redis connection
 - [ ] Test: Connection succeeds with valid URL
 - [ ] Test: Ping returns True when connected
 - [ ] Test: Operations raise error when not connected

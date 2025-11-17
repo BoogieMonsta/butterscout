@@ -12,7 +12,7 @@
 - [ ] Request timing middleware measures duration
 - [ ] Global exception handler catches all errors
 - [ ] Error responses follow TECH SPEC format (error, metadata)
-- [ ] Health check verifies all components (Redis, SearXNG, Crawl4AI)
+- [ ] Health check verifies all components (Valkey/Redis, SearXNG, Crawl4AI)
 - [ ] Health check respects BS_HEALTH_TIMEOUT_MS per component
 - [ ] Health check returns 200 if all OK, 503 if any down
 - [ ] Component status includes timing and errors

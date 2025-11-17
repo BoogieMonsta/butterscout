@@ -1,18 +1,18 @@
-# Task 02: Redis Client & Utilities
+# Task 02: Valkey/Redis Client & Utilities
 
-**Role:** You are a senior Python backend engineer specializing in Redis, caching strategies, and async I/O patterns.
+**Role:** You are a senior Python backend engineer specializing in Valkey/Redis, caching strategies, and async I/O patterns.
 
 ## Context
 
-Build the Redis client layer that will power both caching and rate limiting in Butterscout. This needs to be production-ready with proper connection pooling, error handling, and health checks.
+Build the Valkey/Redis-compatible client layer that will power both caching and rate limiting in Butterscout. This needs to be production-ready with proper connection pooling, error handling, and health checks.
 
 Refer to **[TECH SPEC.md]** §5.4, §7.2 for complete details.
 
 ## Deliverables
 
-### 1. Redis Client (`butterscout/clients/redis_client.py`)
+### 1. Valkey/Redis Client (`butterscout/clients/redis_client.py`)
 
-Implement async Redis client with connection pooling:
+Implement async Valkey/Redis client with connection pooling:
 
 ```python
 import redis.asyncio as redis

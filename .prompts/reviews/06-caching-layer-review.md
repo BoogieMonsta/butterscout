@@ -1,6 +1,6 @@
 # Code Review: Caching Layer
 
-**Role:** You are a senior backend engineer specializing in caching strategies and Redis patterns.
+**Role:** You are a senior backend engineer specializing in caching strategies and Valkey/Redis patterns.
 
 ## Task-Specific Checks
 
@@ -16,9 +16,9 @@
 
 1. **Non-Stable Keys** - Same request must produce same key
 2. **Cache Errors Break Requests** - Must treat errors as cache miss
-3. **Missing TTL** - Keys without expiration fill Redis
+3. **Missing TTL** - Keys without expiration fill Valkey
 4. **Serialization Errors** - Must handle Pydantic serialization failures
-5. **Missing Error Handling** - Redis errors must be caught and logged
+5. **Missing Error Handling** - Valkey/Redis errors must be caught and logged
 
 ## Testing
 
@@ -26,7 +26,7 @@
 - [ ] Test: Cache hit returns correct response
 - [ ] Test: Same request produces same key
 - [ ] Test: TTL expiration works
-- [ ] Test: Redis errors don't break requests
+- [ ] Test: Valkey/Redis errors don't break requests
 
 ## Fix Priority
 - **Critical**: Non-stable keys, cache errors breaking requests

@@ -328,13 +328,13 @@ components:
           enum: [ok, degraded, unhealthy]
         components:
           type: object
-          required: [searxng, crawl4ai, redis]
+          required: [searxng, crawl4ai, valkey]
           properties:
             searxng:
               $ref: '#/components/schemas/ComponentHealth'
             crawl4ai:
               $ref: '#/components/schemas/ComponentHealth'
-            redis:
+            valkey:
               $ref: '#/components/schemas/ComponentHealth'
         version:
           type: string

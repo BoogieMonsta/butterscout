@@ -22,7 +22,7 @@ python_classes = Test*
 # Markers
 markers =
     unit: Unit tests (fast, no external dependencies)
-    integration: Integration tests (requires Redis, may require SearXNG/Crawl4AI)
+    integration: Integration tests (requires Valkey/Redis, may require SearXNG/Crawl4AI)
     slow: Slow tests (> 1 second)
 
 # Asyncio
@@ -81,7 +81,7 @@ def settings() -> Settings:
 
 @pytest.fixture
 async def redis_client(settings: Settings) -> AsyncGenerator[RedisClient, None]:
-    """Redis client for integration tests"""
+    """Valkey/Redis client for integration tests"""
     client = RedisClient(settings)
     await client.connect()
 
@@ -94,7 +94,7 @@ async def redis_client(settings: Settings) -> AsyncGenerator[RedisClient, None]:
 
 @pytest.fixture
 def mock_redis_client() -> RedisClient:
-    """Mock Redis client for unit tests"""
+    """Mock Valkey/Redis client for unit tests"""
     mock_client = MagicMock(spec=RedisClient)
     mock_client.get = AsyncMock(return_value=None)
     mock_client.set = AsyncMock(return_value=True)
@@ -299,7 +299,7 @@ async def test_cache_round_trip(redis_client, settings):
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_rate_limiter_integration(redis_client, settings):
-    """Test rate limiter with real Redis"""
+    """Test rate limiter with real Valkey/Redis"""
     from butterscout.services.rate_limiter import RateLimiter
 
     settings.BS_RATE_LIMIT_PER_HOUR = 5
@@ -479,7 +479,7 @@ tests/
 │   ├── test_models.py
 │   ├── test_services.py
 │   └── test_utils.py
-├── integration/          # Requires Redis, maybe SearXNG
+├── integration/          # Requires Valkey/Redis, maybe SearXNG
 │   ├── test_cache_integration.py
 │   ├── test_api_integration.py
 │   └── test_rate_limit_integration.py
@@ -504,7 +504,7 @@ tests/
 ### Mocking Strategy
 
 - Unit tests: Mock all external dependencies
-- Integration tests: Use real Redis, mock HTTP clients (or use local services)
+- Integration tests: Use real Valkey/Redis, mock HTTP clients (or use local services)
 - Use `AsyncMock` for async functions
 - Use `respx` for HTTP client mocking
 
@@ -519,7 +519,7 @@ make test
 # Unit tests only (fast)
 pytest -m unit
 
-# Integration tests (requires Redis)
+# Integration tests (requires Valkey/Redis)
 pytest -m integration
 
 # With coverage

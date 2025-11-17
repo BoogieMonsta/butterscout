@@ -15,7 +15,7 @@
 - [ ] Resource limits set (cpu, memory)
 - [ ] Environment variables from .env or defaults
 - [ ] `.env.example` provided and matches compose env
-- [ ] Volumes for persistence (Redis, SearXNG)
+- [ ] Volumes for persistence (Valkey/Redis, SearXNG)
 - [ ] Network isolation (private bridge network)
 - [ ] Ports exposed only where needed
 - [ ] SearXNG configuration provided
@@ -27,8 +27,8 @@
 1. **Running as Root** - Container runs as root (security risk)
 2. **Missing Health Checks** - Services start before dependencies ready
 3. **No Resource Limits** - Containers can consume all resources
-4. **Exposed Internal Ports** - Redis/SearXNG accessible from host
-5. **Missing Dependency Conditions** - App starts before Redis ready
+4. **Exposed Internal Ports** - Valkey/SearXNG accessible from host
+5. **Missing Dependency Conditions** - App starts before Valkey ready
 6. **Hardcoded Secrets** - Secrets in compose file, not .env
 7. **Wrong Base Image** - Using full Python image (bloated)
 8. **No Health Check** - Dockerfile missing HEALTHCHECK directive

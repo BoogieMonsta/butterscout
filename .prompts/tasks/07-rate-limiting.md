@@ -4,7 +4,7 @@
 
 ## Context
 
-Implement sliding window rate limiting using Redis to protect the API from abuse. Support multiple rate limit tiers (IP-based, API key-based, global) with proper HTTP headers and retry-after semantics.
+Implement sliding window rate limiting using Valkey/Redis to protect the API from abuse. Support multiple rate limit tiers (IP-based, API key-based, global) with proper HTTP headers and retry-after semantics.
 
 Defaults: 60 req/hr per IP, 600 req/hr per API key, optional global 10k/hr; keying prefers API key when present; emit X-RateLimit-* headers and Retry-After; sliding window via Redis.
 

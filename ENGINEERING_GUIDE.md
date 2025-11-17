@@ -71,15 +71,15 @@ services:
     ports: ["11235:11235"]
 
   redis:
-    image: redis:7-alpine
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    image: valkey/valkey:latest
+    command: ["valkey-server", "--save", "", "--appendonly", "no"]
     ports: ["6379:6379"]
     volumes: ["redis-data:/data"]
 
 volumes:
   redis-data:
 ```
-In prod (Dokploy/Hetzner): add TLS termination and restrict internal ports (8080/6379/11235) to the local network; persist Redis and SearXNG config volumes.
+In prod (Dokploy/Hetzner): add TLS termination and restrict internal ports (8080/6379/11235) to the local network; persist Valkey and SearXNG config volumes.
 
 ## Language Choice Rationale
 - Python + FastAPI fits SearXNG/Crawl4AI integrations, async IO, small ops footprint. Ecosystem support (aiohttp/httpx, Pydantic) simplifies the MVP.

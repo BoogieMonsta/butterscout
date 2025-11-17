@@ -89,9 +89,9 @@ The first goal is reliability and ergonomics, not cleverness: stable infrastruct
   - Docker Compose with:
     - Butterscout API
     - SearXNG
-    - Redis
+    - Valkey (Redis protocol)
     - Crawl4AI
-  - Response caching in Redis (configurable TTL).
+  - Response caching in Valkey (configurable TTL).
   - IP-based rate limiting (configurable).
 - **Observability**
   - Minimal logging.
@@ -150,9 +150,9 @@ Not part of the MVP, but the next step:
     - SearXNG score (primary).
     - Simple heuristics (e.g. boost certain domains).
 - **Caching & Rate Limiting:**
-  - Redis-backed cache keyed by (query, options) signature.
+  - Valkey-backed cache keyed by (query, options) signature.
   - Configurable TTL (e.g. 1 hour).
-  - Basic IP-based rate limit (e.g. X req/hour).
+  - Basic IP-based rate limit (e.g. X req/hour) using Valkey scripts.
 - **Observability:**
   - Structured JSON logs (request id, user ip/hash, cache_hit flag, per-component timings).
   - Metrics: total/failed requests, cache hits, extraction failures, per-component latency histograms, rate-limit counts.
@@ -176,7 +176,7 @@ Not part of the MVP, but the next step:
 2. API layer:
    - Validates payload.
    - Applies auth / rate limiting.
-   - Computes cache key and checks Redis.
+   - Computes cache key and checks Valkey.
 3. If cache hit:
    - Return cached response immediately.
 4. If cache miss:
@@ -195,7 +195,7 @@ Not part of the MVP, but the next step:
    7. Build response JSON:
       - results array (title, URL, snippet, content, metadata).
       - metadata (timings, source info, cache flag).
-   8. Store response in Redis with TTL.
+   8. Store response in Valkey with TTL.
    9. Return response to client.
 
 ---
@@ -221,11 +221,11 @@ Future versions may add additional providers (Brave, SerpAPI, etc.), but that is
 - **Fallback:** Trafilatura extractor (Python library) in a small threadpool (default enabled, configurable).
 
 ### 5.4 Data & Infra
-- **Cache / rate limit store:** Redis
+- **Cache / rate limit store:** Valkey (Redis protocol compatible)
 - **Packaging:** Docker for all components
 - **Orchestration:** Docker Compose for local + single-node prod deployments
 - **Metrics:** Prometheus-compatible endpoint or internal stats exposed via FastAPI route (v0.2+)
-- **Rate limiting:** Token bucket or sliding window (implementation: Redis scripts).
+- **Rate limiting:** Token bucket or sliding window (implementation: Valkey/Redis scripts).
 - **Cache key:** hash of `query + normalized(options) + include_content + max_results`; TTL default 1h.
 
 ---
@@ -304,10 +304,10 @@ Constraints:
 - Per-URL extraction timeout: 2.5s (configurable); per-request budget: 6s (configurable).
 - SearXNG call timeout: 2s (configurable).
 - Cache TTL: default 1h (configurable).
-- Rate limits (sliding window via Redis): 60 req/hour per IP (default); 600 req/hour per API key (if auth enabled); optional global 10k req/hour (disabled by default).
+- Rate limits (sliding window via Valkey/Redis protocol): 60 req/hour per IP (default); 600 req/hour per API key (if auth enabled); optional global 10k req/hour (disabled by default).
 - Request size limit: 32 KB JSON body; reject larger with 413.
 - Concurrency: cap extracted URLs at `max_concurrent_extractions` (default 4) to protect upstreams.
-- Rate limiting algorithm: sliding window (Redis) keyed by API key when present, else IP; return `Retry-After` header and `retry_after_ms` in error body.
+- Rate limiting algorithm: sliding window (Valkey/Redis) keyed by API key when present, else IP; return `Retry-After` header and `retry_after_ms` in error body.
 - Concurrency policy: `max_concurrent_extractions` per request, using asyncio semaphore; no global worker pool in v0.1 (single-node assumption).
 - Cache invalidation: strictly TTL-based; no manual purge API in v0.1.
 
@@ -364,7 +364,7 @@ _Health check endpoint for monitoring / orchestration._
   "components": {
     "searxng": "ok",
     "crawl4ai": "ok",
-    "redis": "ok"
+    "valkey": "ok"
   },
   "version": "0.1.0"
 }
@@ -379,13 +379,13 @@ _Health check endpoint for monitoring / orchestration._
   - butterscout-api
   - searxng
   - crawl4ai
-  - redis
-- Resource hints (Compose): butterscout-api `cpus: 1.5`, `mem_limit: 1.5g`; searxng `cpus: 1`, `mem_limit: 1g`; crawl4ai `cpus: 1`, `mem_limit: 1g`; redis `mem_limit: 512m`.
+-  - valkey (Redis protocol)
+- Resource hints (Compose): butterscout-api `cpus: 1.5`, `mem_limit: 1.5g`; searxng `cpus: 1`, `mem_limit: 1g`; crawl4ai `cpus: 1`, `mem_limit: 1g`; valkey `mem_limit: 512m`.
 - Recommended ulimits: nofile 65535 for API and SearXNG.
 - Env vars for:
   - SearXNG URL
   - Crawl4AI URL
-  - Redis URL
+  - Valkey URL
   - Rate limit settings
   - Cache TTL
 - Basic instructions:
@@ -397,7 +397,7 @@ _Health check endpoint for monitoring / orchestration._
 - `BS_API_KEY` (optional): if set, require `x-api-key` to match.
 - `BS_SEARXNG_URL` (required): base URL to SearXNG instance.
 - `BS_CRAWL4AI_URL` (required): base URL to Crawl4AI.
-- `BS_REDIS_URL` (required): Redis connection string.
+- `BS_REDIS_URL` (required): Valkey/Redis protocol connection string.
 - `BS_CACHE_TTL_SECONDS`: default 3600.
 - `BS_RATE_LIMIT_PER_HOUR`: default 60.
 - `BS_API_KEY_RATE_LIMIT_PER_HOUR`: default 600 (if auth enabled).
@@ -418,28 +418,28 @@ _Health check endpoint for monitoring / orchestration._
 ### 7.2 Production Considerations  
 (_Out of Scope for v0.1 Implementation, but Documented_)
 - Horizontal scaling of butterscout-api behind a reverse proxy.
-- External managed Redis.
+- External managed Valkey/Redis.
 - External SearXNG / Crawl4AI clusters if necessary.
 - TLS termination at a reverse proxy (Caddy, nginx, Traefik, etc.).
 - Observability: ship logs to centralized sink; scrape Prometheus metrics; set uptime checks for `/health`.
 - Security hardening: enable TLS everywhere; restrict SearXNG to trusted networks; configure CORS allowlist; enable reverse-proxy rate limits as a second barrier.
 
 ### 7.3 Data Handling & Privacy
-- Persistent stores: Redis only (cache + rate limit counters). No long-term storage of query results beyond TTL.
+- Persistent stores: Valkey only (cache + rate limit counters). No long-term storage of query results beyond TTL.
 - Logs: avoid storing full extracted content; log URLs/domains, timings, error codes, cache hits, request ids.
 - PII: assume queries may include PII; do not export logs externally without scrubber; ensure TLS in transit.
 - Make TTL configurable per deployment for data minimization requirements.
 
 ### 7.4 Health Check Contract
 - `/health` should:
-  - Query Redis `PING`, SearXNG lightweight request (e.g., `/status` or minimal search), Crawl4AI lightweight request.
+  - Query Valkey `PING`, SearXNG lightweight request (e.g., `/status` or minimal search), Crawl4AI lightweight request.
   - Enforce per-component timeout `BS_HEALTH_TIMEOUT_MS` (default 750ms).
   - Return `200` if all components are `ok`; return `503` when any dependency is `degraded` or `down`; include component statuses in body plus `uptime_seconds` and `timestamp`.
   - Do not block on extraction; avoid heavy operations.
 
 ### 7.5 Dokploy on Hetzner (single-node)
 - Provision: Hetzner CX31+ (2–4 vCPU, 8 GB RAM, 80+ GB SSD), Ubuntu 22.04. Open ports 80/443; restrict 8000/8080/6379 to local/VPC.
-- Install Dokploy; add Docker Compose app using repo root (butterscout-api, searxng, crawl4ai, redis). Use persistent volumes for Redis and SearXNG configs.
+- Install Dokploy; add Docker Compose app using repo root (butterscout-api, searxng, crawl4ai, valkey). Use persistent volumes for Valkey and SearXNG configs.
 - Secrets/env in Dokploy:
   - `BS_SEARXNG_URL=http://searxng:8080`
   - `BS_CRAWL4AI_URL=http://crawl4ai:11235`
@@ -450,7 +450,7 @@ _Health check endpoint for monitoring / orchestration._
   - `BS_ALLOWED_DOMAINS` / `BS_BLOCKED_DOMAINS` (optional)
 - Domains/TLS: point DNS A/AAAA to the server; in Dokploy enable HTTPS (Let’s Encrypt) and proxy to `butterscout-api:8000`; set `X-Forwarded-For` preservation.
 - Health/monitoring: configure Dokploy health check on `/health` (timeout 1s, interval 15s); pipe container logs to Dokploy or external sink; expose `/metrics` internally only.
-- Backups: snapshot SearXNG settings and Redis volume as needed; config is otherwise stateless.
+- Backups: snapshot SearXNG settings and Valkey volume as needed; config is otherwise stateless.
 
 ---
 
@@ -520,9 +520,9 @@ _These do not need to be resolved for v0.1 and should not block implementation._
 
 ### 9.3 Assumptions
 - SearXNG and Crawl4AI are reachable with low tail latency within the same network.
-- Redis is durable enough for the cache/rate-limit use case; eviction policy configured (e.g. `allkeys-lru`).
+- Valkey is durable enough for the cache/rate-limit use case; eviction policy configured (e.g. `allkeys-lru`).
 - Single locale focus (English) is acceptable for v0.1; other languages are best-effort via upstream SearXNG.
-- Token bucket/sliding-window rate limiting in Redis is sufficient for anticipated load of a single VPS deployment.
+- Token bucket/sliding-window rate limiting in Valkey is sufficient for anticipated load of a single VPS deployment.
 
 ---
 
@@ -538,7 +538,7 @@ _These do not need to be resolved for v0.1 and should not block implementation._
 - Crawl4AI integration and fallback extractor.
 - Parallel extraction and result assembly.
 - Deduplication and simple ranking.
-- Redis caching and rate limiting.
+- Valkey caching and rate limiting.
 - OpenAPI docs.
 
 **Phase 3 – Hardening (≈ 2–3 weeks):**

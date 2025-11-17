@@ -4,7 +4,7 @@
 
 ## Context
 
-Create the complete Docker Compose setup for running Butterscout locally with all dependencies (SearXNG, Crawl4AI, Redis). This should provide a one-command development and single-node production environment. Use the actual Crawl4AI image/tag (replace placeholder) and supply `.env.example` for defaults.
+Create the complete Docker Compose setup for running Butterscout locally with all dependencies (SearXNG, Crawl4AI, Valkey/Redis). This should provide a one-command development and single-node production environment. Use the actual Crawl4AI image/tag (replace placeholder) and supply `.env.example` for defaults.
 
 Refer to **[TECH SPEC.md]** §7, **[ENGINEERING_GUIDE.md]** §40-42 for complete details.
 
@@ -422,7 +422,7 @@ docker compose restart searxng
 - Check if Crawl4AI service is running: `docker compose ps crawl4ai`
 - Check logs: `docker compose logs crawl4ai`
 
-**Issue: Redis connection error**
+**Issue: Valkey connection error**
 ```bash
 docker compose exec redis redis-cli ping
 ```
@@ -516,11 +516,11 @@ Per TECH SPEC recommendations:
 - API: 1.5 CPUs, 1.5GB RAM
 - SearXNG: 1 CPU, 1GB RAM
 - Crawl4AI: 1 CPU, 1GB RAM
-- Redis: 0.5 CPU, 512MB RAM
+- Valkey: 0.5 CPU, 512MB RAM
 
 Total: ~4 vCPUs, ~4GB RAM
 
-### Redis Configuration
+### Valkey Configuration
 
 - No persistence (`--save "" --appendonly no`) for cache-only use
 - LRU eviction policy (`allkeys-lru`)
@@ -535,7 +535,7 @@ Total: ~4 vCPUs, ~4GB RAM
 
 ### Volume Persistence
 
-- `redis-data`: Redis data (optional, for rate limit persistence)
+- `redis-data`: Valkey data (optional, for rate limit persistence)
 - `searxng-data`: SearXNG settings
 - `searxng-config`: Custom SearXNG configuration (bind mount)
 

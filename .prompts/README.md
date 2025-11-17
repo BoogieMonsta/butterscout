@@ -96,9 +96,9 @@ Tasks are organized into 5 phases for maximum parallelization:
 
 **Can all run in parallel after Phase 0 completes.**
 
-- **Task 02**: Redis Client & Utilities
+- **Task 02**: Valkey/Redis Client & Utilities
   - Dependencies: Task 01
-  - Deliverables: Redis client, key generation utilities
+  - Deliverables: Valkey/Redis client, key generation utilities
 
 - **Task 03**: SearXNG Client
   - Dependencies: Task 01
@@ -118,7 +118,7 @@ Tasks are organized into 5 phases for maximum parallelization:
 
 - **Task 06**: Caching Layer
   - Dependencies: Task 01, Task 02
-  - Deliverables: Redis-backed cache service, TTL management
+  - Deliverables: Valkey-backed cache service, TTL management
 
 - **Task 07**: Rate Limiting System
   - Dependencies: Task 01, Task 02
@@ -204,7 +204,7 @@ With enough agents/developers, you can achieve significant time savings:
 ### 1. Clear Contracts First
 
 Before starting Phase 2, ensure Phase 1 components have clear interfaces:
-- Redis client API documented
+- Valkey/Redis client API documented
 - SearXNG client return types defined
 - Extraction client interfaces agreed upon
 
@@ -245,7 +245,7 @@ class SearXNGClient:
 
 ### 6. Keep Tests Isolated
 
-- Unit tests should not require Redis/SearXNG/Crawl4AI
+- Unit tests should not require Valkey/SearXNG/Crawl4AI
 - Use mocks for external dependencies in unit tests
 - Integration tests clearly marked with `@pytest.mark.integration`
 
@@ -282,7 +282,7 @@ make test && make lint && make typecheck
 cat .prompts/reviews/01-foundation-review.md
 # Review and fix...
 
-# Day 3: Redis Client
+# Day 3: Valkey Client
 cat .prompts/tasks/02-redis-client.md
 # Implement...
 make test
@@ -299,7 +299,7 @@ cat .prompts/reviews/02-redis-client-review.md
 # Agent 1 completes Task 01
 
 # Phase 1 (3 agents in parallel)
-# Agent 1: Task 02 (Redis)
+# Agent 1: Task 02 (Valkey)
 # Agent 2: Task 03 (SearXNG)
 # Agent 3: Task 04 (Extraction)
 
@@ -362,8 +362,8 @@ Before marking v0.1 complete, ensure:
 
 ### Common Issues
 
-**Issue:** "Tests fail with Redis connection error"
-- **Fix:** Start Redis: `docker compose up redis -d`
+**Issue:** "Tests fail with Valkey connection error"
+- **Fix:** Start Valkey: `docker compose up redis -d`
 - **Fix:** Check `BS_REDIS_URL` in .env
 
 **Issue:** "Import errors after Task 01"
