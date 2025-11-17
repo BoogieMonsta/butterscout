@@ -91,8 +91,8 @@ def validate_settings(settings: Settings) -> None:
     if not settings.BS_CRAWL4AI_URL.startswith(("http://", "https://")):
         errors.append("BS_CRAWL4AI_URL must start with http:// or https://")
 
-    if not settings.BS_REDIS_URL.startswith("redis://"):
-        errors.append("BS_REDIS_URL must start with redis://")
+    if not settings.BS_REDIS_URL.startswith(("redis://", "valkey://")):
+        errors.append("BS_REDIS_URL must start with redis:// or valkey://")
 
     if settings.BS_MAX_RESULTS > 25:
         errors.append("BS_MAX_RESULTS cannot exceed 25")
