@@ -24,6 +24,7 @@ dev = [
     "ruff>=0.2.0",
     "mypy>=1.8.0",
     "openapi-spec-validator>=0.6.1",
+    "respx>=0.20.0",
 ]
 
 [build-system]
