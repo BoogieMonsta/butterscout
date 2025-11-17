@@ -175,28 +175,32 @@ Not part of the MVP, but the next step:
 1. Client sends `POST /api/v1/search` with JSON body.
 2. API layer:
    - Validates payload.
-   - Applies auth / rate limiting.
+   - Applies rate limiting (checked first to prevent brute force and ensure headers on all responses).
+   - Applies authentication (if API key is configured).
    - Computes cache key and checks Valkey.
 3. If cache hit:
-   - Return cached response immediately.
+   - Return cached response immediately with rate limit headers.
 4. If cache miss:
    1. Call SearXNG with the query (and optional filters).
    2. Normalize SERP items into internal objects.
-   3. Select top N candidates.
-   4. In parallel:
+   3. Apply domain filtering (whitelist/blacklist from config).
+   4. Deduplicate results by URL (optimization: before extraction to avoid wasting resources).
+   5. Select top N candidates.
+   6. If `include_content=true`, extract content in parallel:
       - For each URL, call Crawl4AI → extracted content.
       - On failure, try fallback extractor.
       - Enforce per-URL timeout (default 2.5s) and per-request budget (default 6s).
       - Retry policy:
         - SearXNG: 1 retry on 5xx/timeout with jittered backoff (e.g. 100–300ms).
         - Crawl4AI: no retries; fall back immediately on failure/timeout.
-   5. Deduplicate results by URL.
-   6. Filter and rank results using simple heuristics.
-   7. Build response JSON:
+      - Partial failures are allowed: extraction errors are marked but don't fail the request.
+   7. Filter low-quality results (empty content, word count < 10).
+   8. Rank results using simple heuristics.
+   9. Build response JSON:
       - results array (title, URL, snippet, content, metadata).
       - metadata (timings, source info, cache flag).
-   8. Store response in Valkey with TTL.
-   9. Return response to client.
+   10. Store response in Valkey with TTL.
+   11. Return response to client with rate limit headers.
 
 ---
 

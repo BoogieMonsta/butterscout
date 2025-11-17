@@ -1,15 +1,17 @@
 """FastAPI application entry point."""
 from __future__ import annotations
+from butterscout.routers import health, search
 
 import logging
+import os
 import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, AsyncIterator, Awaitable, Callable
 
 import structlog
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -19,7 +21,9 @@ from butterscout.clients.redis_client import ValkeyClient
 from butterscout.clients.searxng_client import SearXNGClient
 from butterscout.clients.trafilatura_client import TrafilaturaClient
 from butterscout.config import Settings, validate_settings
-from butterscout.routers import health, search
+from butterscout.state import app_state
+
+__all__ = ["app", "app_state"]
 
 # Configure structured logging
 structlog.configure(
@@ -40,29 +44,30 @@ structlog.configure(
 logger = structlog.get_logger()
 
 
-# Global state for dependency injection
-class AppState:
-    """Application state container."""
-
-    settings: Settings
-    redis_client: ValkeyClient
-    searxng_client: SearXNGClient
-    crawl4ai_client: Crawl4AIClient
-    trafilatura_client: Optional[TrafilaturaClient]
-    extraction_strategy: ExtractionStrategy
-
-
-app_state = AppState()
-
 # Load and validate settings early (needed for CORS configuration)
 app_state.settings = Settings()  # type: ignore[call-arg]
 validate_settings(app_state.settings)
 
 
+def _should_skip_startup() -> bool:
+    """Detect when startup should be skipped (tests)."""
+    return bool(
+        os.environ.get("PYTEST_CURRENT_TEST")
+        or os.environ.get("BS_SKIP_STARTUP", "").lower()
+        in {"1", "true", "yes"}
+    )
+
+
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan: startup and shutdown."""
     logger.info("butterscout_startup_begin")
+
+    if _should_skip_startup():
+        logger.info("butterscout_startup_skip", reason="test_mode")
+        yield
+        logger.info("butterscout_shutdown_skip", reason="test_mode")
+        return
 
     # Initialize clients
     app_state.redis_client = ValkeyClient(app_state.settings)
@@ -101,13 +106,15 @@ async def lifespan(app: FastAPI):
     logger.info("butterscout_shutdown_begin")
 
     # Collect all clients to disconnect
-    clients_to_disconnect = [
+    clients_to_disconnect: list[tuple[str, Any]] = [
         ("valkey", app_state.redis_client),
         ("searxng", app_state.searxng_client),
         ("crawl4ai", app_state.crawl4ai_client),
     ]
     if app_state.trafilatura_client:
-        clients_to_disconnect.append(("trafilatura", app_state.trafilatura_client))
+        clients_to_disconnect.append(
+            ("trafilatura", app_state.trafilatura_client)
+        )
 
     # Disconnect each client, continuing even if one fails
     for client_name, client in clients_to_disconnect:
@@ -143,7 +150,9 @@ app.add_middleware(
 
 
 @app.middleware("http")
-async def request_id_middleware(request: Request, call_next):
+async def request_id_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
     """Add request ID to all requests."""
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
@@ -156,7 +165,8 @@ async def request_id_middleware(request: Request, call_next):
         response = await call_next(request)
 
         # Calculate request duration
-        duration_ms = int((time.perf_counter() - request.state.start_time) * 1000)
+        duration_ms = int(
+            (time.perf_counter() - request.state.start_time) * 1000)
 
         # Add headers
         response.headers["X-Request-ID"] = request_id
@@ -183,7 +193,7 @@ async def request_id_middleware(request: Request, call_next):
 
 
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle unexpected exceptions."""
     request_id = getattr(request.state, "request_id", "unknown")
     response_time_ms = getattr(request.state, "response_time_ms", None)
@@ -195,6 +205,10 @@ async def global_exception_handler(request: Request, exc: Exception):
         error=str(exc),
         exc_info=True,
     )
+
+    headers = {"X-Request-ID": request_id}
+    if response_time_ms is not None:
+        headers["X-Response-Time"] = f"{response_time_ms}ms"
 
     return JSONResponse(
         status_code=500,
@@ -210,17 +224,11 @@ async def global_exception_handler(request: Request, exc: Exception):
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         },
-        headers={
-            "X-Request-ID": request_id,
-            **(
-                {"X-Response-Time": f"{response_time_ms}ms"}
-                if response_time_ms is not None
-                else {}
-            ),
-        },
+        headers=headers,
     )
 
 
-# Include routers
+# Include routers (will be imported after they are created)
+
 app.include_router(health.router)
 app.include_router(search.router, prefix="/api/v1")

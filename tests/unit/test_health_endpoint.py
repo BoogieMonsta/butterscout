@@ -7,7 +7,7 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_health_endpoint_structure_mocked():
+async def test_health_endpoint_structure_mocked() -> None:
     """Test health endpoint returns correct structure with mocked dependencies."""
     # Mock the clients
     with patch("butterscout.main.app_state") as mock_app_state:
@@ -45,7 +45,7 @@ async def test_health_endpoint_structure_mocked():
 
 
 @pytest.mark.asyncio
-async def test_health_endpoint_degraded_state():
+async def test_health_endpoint_degraded_state() -> None:
     """Test health endpoint returns 503 when a component is down."""
     with patch("butterscout.main.app_state") as mock_app_state:
         # Setup mock settings
@@ -73,7 +73,7 @@ async def test_health_endpoint_degraded_state():
 
 
 @pytest.mark.asyncio
-async def test_health_endpoint_timeout_handling():
+async def test_health_endpoint_timeout_handling() -> None:
     """Test health endpoint handles timeouts correctly."""
     with patch("butterscout.main.app_state") as mock_app_state:
         # Setup mock settings
@@ -84,7 +84,7 @@ async def test_health_endpoint_timeout_handling():
         # Setup mock clients - redis times out
         import asyncio
 
-        async def timeout_func():
+        async def timeout_func() -> bool:
             await asyncio.sleep(2)  # Simulate timeout
             return True
 
