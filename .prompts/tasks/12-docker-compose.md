@@ -25,9 +25,12 @@ RUN apt-get update && apt-get install -y \
 # Copy dependency files
 COPY pyproject.toml ./
 
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+
 # Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -e .
+RUN uv sync
 
 # Copy application code
 COPY butterscout/ ./butterscout/
@@ -309,21 +312,24 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir --upgrade pip
 
 # Development stage
 FROM base as development
 
-RUN pip install --no-cache-dir -e ".[dev]"
+RUN uv sync --all-extras
 
 USER root
-CMD ["uvicorn", "butterscout.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uv", "run", "uvicorn", "butterscout.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 # Production stage
 FROM base as production
 
-RUN pip install --no-cache-dir -e .
+RUN uv sync
 
 COPY butterscout/ ./butterscout/
 
@@ -456,10 +462,13 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          pip install -e ".[dev]"
+          export PATH="$HOME/.local/bin:$PATH"
+          uv sync --all-extras
 
       - name: Lint
         run: make lint

@@ -367,7 +367,7 @@ Before marking v0.1 complete, ensure:
 - **Fix:** Check `BS_REDIS_URL` in .env
 
 **Issue:** "Import errors after Task 01"
-- **Fix:** Run `pip install -e .` to install package in editable mode
+- **Fix:** Run `uv sync --all-extras` to install package dependencies
 - **Fix:** Check `__init__.py` files exist in all packages
 
 **Issue:** "Task 10 fails with missing dependencies"

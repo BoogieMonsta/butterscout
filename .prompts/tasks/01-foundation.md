@@ -16,7 +16,7 @@ Create a clean, maintainable Python project layout:
 
 ```
 butterscout/
-├── pyproject.toml           # Poetry/pip config with all dependencies
+├── pyproject.toml           # Project config with all dependencies
 ├── .env.example             # Example environment variables
 ├── Makefile                 # Common dev tasks
 ├── README.md                # Basic project overview
@@ -307,10 +307,10 @@ clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov/
 
 install:
-	pip install -e ".[dev]"
+	uv sync --all-extras
 
 dev:
-	uvicorn butterscout.main:app --reload --host 0.0.0.0 --port 8000
+	uv run uvicorn butterscout.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### 8. Dependencies (`pyproject.toml`)

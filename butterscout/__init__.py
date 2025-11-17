@@ -1,0 +1,3 @@
+"""
+Butterscout package initialization.
+"""
