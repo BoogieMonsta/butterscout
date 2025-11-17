@@ -73,7 +73,7 @@ The first goal is reliability and ergonomics, not cleverness: stable infrastruct
   - Normalize SERP items (title, URL, snippet, score).
 - **Content extraction**
   - Integrate with a local Crawl4AI instance (primary extractor).
-  - Provide a simple fallback extractor (Trafilatura or Readability) for non-HTML or failures.
+  - Provide a simple fallback extractor (Trafilatura) for non-HTML or failures.
   - Extract content in parallel for top N URLs.
 - **Ranking & filtering**
   - Deduplicate results by URL.
@@ -156,6 +156,14 @@ Not part of the MVP, but the next step:
 - **Observability:**
   - Structured JSON logs (request id, user ip/hash, cache_hit flag, per-component timings).
   - Metrics: total/failed requests, cache hits, extraction failures, per-component latency histograms, rate-limit counts.
+  - Suggested metric names (Prometheus):
+    - `butterscout_requests_total{status,source}`
+    - `butterscout_request_duration_seconds_bucket{component}` (histogram)
+    - `butterscout_cache_hits_total`
+    - `butterscout_extraction_failures_total{reason}`
+    - `butterscout_rate_limited_total`
+  - Metrics exposed at `/metrics` (Prometheus text format), guarded by config flag.
+  - Log fields (JSON): `ts`, `level`, `msg`, `request_id`, `client_ip_hash`, `api_key_hash` (when used), `cache_hit`, `rate_limited`, `searxng_time_ms`, `extraction_time_ms`, `status_code`, `error_code`, `url_count`.
 - **(Planned) LLM Layer (v0.2+):**
   - Optional re-ranking using:
     - Embedding similarity.
@@ -179,6 +187,9 @@ Not part of the MVP, but the next step:
       - For each URL, call Crawl4AI → extracted content.
       - On failure, try fallback extractor.
       - Enforce per-URL timeout (default 2.5s) and per-request budget (default 6s).
+      - Retry policy:
+        - SearXNG: 1 retry on 5xx/timeout with jittered backoff (e.g. 100–300ms).
+        - Crawl4AI: no retries; fall back immediately on failure/timeout.
    5. Deduplicate results by URL.
    6. Filter and rank results using simple heuristics.
    7. Build response JSON:
@@ -207,13 +218,15 @@ Future versions may add additional providers (Brave, SerpAPI, etc.), but that is
 
 ### 5.3 Extraction
 - **Primary:** Crawl4AI service (self-hosted).
-- **Fallback:** Trafilatura or Readability-style extractor (Python library).
+- **Fallback:** Trafilatura extractor (Python library) in a small threadpool (default enabled, configurable).
 
 ### 5.4 Data & Infra
 - **Cache / rate limit store:** Redis
 - **Packaging:** Docker for all components
 - **Orchestration:** Docker Compose for local + single-node prod deployments
 - **Metrics:** Prometheus-compatible endpoint or internal stats exposed via FastAPI route (v0.2+)
+- **Rate limiting:** Token bucket or sliding window (implementation: Redis scripts).
+- **Cache key:** hash of `query + normalized(options) + include_content + max_results`; TTL default 1h.
 
 ---
 
@@ -239,6 +252,10 @@ _Main search endpoint._
   }
 }
 ```
+Constraints:
+- `query`: 1–512 UTF-8 chars; trimmed; reject empty/whitespace-only.
+- `domains`/`exclude_domains`: max 20 entries each; each entry 3–255 chars; no wildcards for v0.1.
+- `freshness_days`: must be positive integer if provided.
 
 **Response (MVP):**
 ```jsonc
@@ -287,9 +304,34 @@ _Main search endpoint._
 - Per-URL extraction timeout: 2.5s (configurable); per-request budget: 6s (configurable).
 - SearXNG call timeout: 2s (configurable).
 - Cache TTL: default 1h (configurable).
-- Rate limit: default 60 req/hour per IP (configurable).
+- Rate limits (sliding window via Redis): 60 req/hour per IP (default); 600 req/hour per API key (if auth enabled); optional global 10k req/hour (disabled by default).
 - Request size limit: 32 KB JSON body; reject larger with 413.
 - Concurrency: cap extracted URLs at `max_concurrent_extractions` (default 4) to protect upstreams.
+- Rate limiting algorithm: sliding window (Redis) keyed by API key when present, else IP; return `Retry-After` header and `retry_after_ms` in error body.
+- Concurrency policy: `max_concurrent_extractions` per request, using asyncio semaphore; no global worker pool in v0.1 (single-node assumption).
+- Cache invalidation: strictly TTL-based; no manual purge API in v0.1.
+
+### 6.3 Schema Precision (v0.1)
+- Types: `query` string (1–512 chars); `domains`/`exclude_domains` arrays of strings (each 3–255 chars); `language` ISO 639-1 or null.
+- `max_results` int; default 10; min 1; max 25.
+- `include_content` boolean.
+- `options.freshness_days` nullable number; pass-through when supported upstream.
+- `metadata` fields are required in success responses; timing breakdown fields may be null if not collected.
+- Error body shape (all errors):
+  ```json
+  {
+    "error": {
+      "code": "string",          // e.g. VALIDATION_ERROR, RATE_LIMITED, UPSTREAM_TIMEOUT
+      "message": "human-readable",
+      "details": { "...": "..." } // optional; include component="searxng|crawl4ai|fallback", retry_after_ms, timeout=true, fields=[...]
+    },
+    "metadata": {
+      "request_id": "uuid",
+      "api_version": "v1",
+      "timestamp": "ISO-8601"
+    }
+  }
+  ```
 
 **Error responses (MVP):**
 - 400: validation error (Pydantic schema) — include field-level details.
@@ -299,11 +341,18 @@ _Main search endpoint._
 - 500: unhandled server error; avoid leaking stack traces in JSON.
 - 502/504: upstream failures/timeouts; include which component failed (`searxng`, `crawl4ai`, `fallback_extractor`) and whether partial results were returned.
 
-### 6.3 Partial Failure Handling
+### 6.4 Partial Failure Handling
 - If SearXNG fails, return 502/504 with empty results and `metadata.sources_queried` reflecting the attempted source.
 - If extraction fails for some URLs, still return any successful results; mark each item with `metadata.extraction_ok=false` and `metadata.extracted_by=fallback|crawl4ai`.
 - Timeouts should surface as `timeout=true` in error metadata; avoid truncating response schema.
 - Always include `cache_hit` and `rate_limited` flags in metadata.
+
+### 6.5 Auth & Rate-Limit Semantics
+- Auth header: `x-api-key`. If configured and missing/invalid → 401 with `code="UNAUTHORIZED"`.
+- Rate-limit keying: prefer API key when present; otherwise client IP. If both auth and IP limits exist, enforce both; return 429 with `Retry-After` header and `retry_after_ms` in body.
+- CORS: allowlist from config; default `*` for dev only.
+- Rate-limit headers: include `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, and `Retry-After` (on 429).
+- 401 responses include `WWW-Authenticate: ApiKey realm="Butterscout API"`.
 
 #### GET `/health`  
 _Health check endpoint for monitoring / orchestration._
@@ -331,6 +380,8 @@ _Health check endpoint for monitoring / orchestration._
   - searxng
   - crawl4ai
   - redis
+- Resource hints (Compose): butterscout-api `cpus: 1.5`, `mem_limit: 1.5g`; searxng `cpus: 1`, `mem_limit: 1g`; crawl4ai `cpus: 1`, `mem_limit: 1g`; redis `mem_limit: 512m`.
+- Recommended ulimits: nofile 65535 for API and SearXNG.
 - Env vars for:
   - SearXNG URL
   - Crawl4AI URL
@@ -348,12 +399,20 @@ _Health check endpoint for monitoring / orchestration._
 - `BS_REDIS_URL` (required): Redis connection string.
 - `BS_CACHE_TTL_SECONDS`: default 3600.
 - `BS_RATE_LIMIT_PER_HOUR`: default 60.
+- `BS_API_KEY_RATE_LIMIT_PER_HOUR`: default 600 (if auth enabled).
+- `BS_GLOBAL_RATE_LIMIT_PER_HOUR`: default 10000 (disabled if unset).
 - `BS_MAX_RESULTS`: default 10; max 25.
 - `BS_MAX_CONCURRENT_EXTRACTIONS`: default 4.
 - `BS_EXTRACTION_TIMEOUT_MS`: default 2500.
 - `BS_REQUEST_TIMEOUT_MS`: default 6000 (end-to-end budget).
 - `BS_LOG_LEVEL`: default `info`.
 - `BS_ALLOWED_DOMAINS` / `BS_BLOCKED_DOMAINS`: comma-separated lists.
+- `BS_RATE_LIMIT_ALGO`: default `sliding_window`.
+- `BS_HEALTH_TIMEOUT_MS`: default 750 (per dependency check).
+- `BS_ENABLE_METRICS`: default true.
+- `BS_FALLBACK_ENABLED`: default true.
+- `BS_FALLBACK_MAX_WORKERS`: default 2 (threadpool for Trafilatura).
+- `BS_FALLBACK_TIMEOUT_MS`: default 2000.
 
 ### 7.2 Production Considerations  
 (_Out of Scope for v0.1 Implementation, but Documented_)
@@ -369,6 +428,28 @@ _Health check endpoint for monitoring / orchestration._
 - Logs: avoid storing full extracted content; log URLs/domains, timings, error codes, cache hits, request ids.
 - PII: assume queries may include PII; do not export logs externally without scrubber; ensure TLS in transit.
 - Make TTL configurable per deployment for data minimization requirements.
+
+### 7.4 Health Check Contract
+- `/health` should:
+  - Query Redis `PING`, SearXNG lightweight request (e.g., `/status` or minimal search), Crawl4AI lightweight request.
+  - Enforce per-component timeout `BS_HEALTH_TIMEOUT_MS` (default 750ms).
+  - Return `200` if all components are `ok`; return `503` when any dependency is `degraded` or `down`; include component statuses in body plus `uptime_seconds` and `timestamp`.
+  - Do not block on extraction; avoid heavy operations.
+
+### 7.5 Dokploy on Hetzner (single-node)
+- Provision: Hetzner CX31+ (2–4 vCPU, 8 GB RAM, 80+ GB SSD), Ubuntu 22.04. Open ports 80/443; restrict 8000/8080/6379 to local/VPC.
+- Install Dokploy; add Docker Compose app using repo root (butterscout-api, searxng, crawl4ai, redis). Use persistent volumes for Redis and SearXNG configs.
+- Secrets/env in Dokploy:
+  - `BS_SEARXNG_URL=http://searxng:8080`
+  - `BS_CRAWL4AI_URL=http://crawl4ai:11235`
+  - `BS_REDIS_URL=redis://redis:6379/0`
+  - `BS_API_KEY=<generated>` (optional)
+  - `BS_RATE_LIMIT_PER_HOUR`, `BS_API_KEY_RATE_LIMIT_PER_HOUR`
+  - `BS_REQUEST_TIMEOUT_MS=6000`, `BS_EXTRACTION_TIMEOUT_MS=2500`, `BS_MAX_CONCURRENT_EXTRACTIONS=4`
+  - `BS_ALLOWED_DOMAINS` / `BS_BLOCKED_DOMAINS` (optional)
+- Domains/TLS: point DNS A/AAAA to the server; in Dokploy enable HTTPS (Let’s Encrypt) and proxy to `butterscout-api:8000`; set `X-Forwarded-For` preservation.
+- Health/monitoring: configure Dokploy health check on `/health` (timeout 1s, interval 15s); pipe container logs to Dokploy or external sink; expose `/metrics` internally only.
+- Backups: snapshot SearXNG settings and Redis volume as needed; config is otherwise stateless.
 
 ---
 
@@ -395,6 +476,11 @@ _Health check endpoint for monitoring / orchestration._
     - Relevance
     - Content quality
     - Noise/spam incidence
+- **CI/Test gates:**
+  - `pytest` unit + integration (with mocked SearXNG/Crawl4AI; real local services optional).
+  - Lint/type check: `ruff` + `mypy --strict` (or chosen strict subset).
+  - Minimal perf sanity: script that runs 5 representative queries against local stack and asserts p95 < 3s and no 5xx responses.
+  - OpenAPI schema generation matches spec (contract test).
 
 ### 8.2 Future Evals (v0.2+)
 
@@ -435,6 +521,7 @@ _These do not need to be resolved for v0.1 and should not block implementation._
 - SearXNG and Crawl4AI are reachable with low tail latency within the same network.
 - Redis is durable enough for the cache/rate-limit use case; eviction policy configured (e.g. `allkeys-lru`).
 - Single locale focus (English) is acceptable for v0.1; other languages are best-effort via upstream SearXNG.
+- Token bucket/sliding-window rate limiting in Redis is sufficient for anticipated load of a single VPS deployment.
 
 ---
 
