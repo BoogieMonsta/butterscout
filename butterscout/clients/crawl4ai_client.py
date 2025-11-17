@@ -109,7 +109,7 @@ class Crawl4AIClient:
                 raise ValueError("Crawl4AI returned empty content")
 
             word_count = len(content.split())
-            extraction_time_ms = int((time.perf_counter() - start_time) * 1000)
+            extraction_time_ms = max(1, int((time.perf_counter() - start_time) * 1000))
 
             logger.info(
                 "crawl4ai_extract_success",
@@ -129,7 +129,7 @@ class Crawl4AIClient:
             )
 
         except httpx.TimeoutException as e:
-            extraction_time_ms = int((time.perf_counter() - start_time) * 1000)
+            extraction_time_ms = max(1, int((time.perf_counter() - start_time) * 1000))
             logger.warning(
                 "crawl4ai_timeout",
                 request_id=request_id,

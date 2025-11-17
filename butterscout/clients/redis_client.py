@@ -27,7 +27,7 @@ class ValkeyClient:
                 self.settings.BS_REDIS_URL,
                 encoding="utf-8",
                 decode_responses=True,
-                max_connections=20,
+                max_connections=200,
                 socket_keepalive=True,
                 socket_connect_timeout=5,
                 retry_on_timeout=True,
@@ -48,8 +48,9 @@ class ValkeyClient:
         """Close Valkey connection pool."""
         if self.valkey:
             logger.info("Disconnecting from Valkey")
-            await self.valkey.close()
+            await self.valkey.aclose()  # close is deprecated; aclose is the async variant
             logger.info("Disconnected from Valkey")
+            self.valkey = None
 
     async def ping(self) -> bool:
         """Health check - returns True if Valkey is responsive.

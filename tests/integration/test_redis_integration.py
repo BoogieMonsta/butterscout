@@ -137,6 +137,9 @@ async def test_increment_operations_concurrent(settings: Settings) -> None:
     await client.connect()
 
     try:
+        # Ensure clean starting state to avoid cross-test contamination
+        await client.delete("test:concurrent_incr")
+
         # Run 50 concurrent increments
         async def increment() -> int:
             return await client.incr("test:concurrent_incr")
@@ -154,6 +157,11 @@ async def test_increment_operations_concurrent(settings: Settings) -> None:
         # Cleanup
         await client.delete("test:concurrent_incr")
     finally:
+        # Ensure cleanup even if assertions fail
+        try:
+            await client.delete("test:concurrent_incr")
+        except Exception:
+            pass
         await client.disconnect()
 
 
