@@ -90,6 +90,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     if _should_skip_startup():
         logger.info("butterscout_startup_skip", reason="test_mode")
+        # Initialize lightweight test clients to satisfy handlers without external dependencies
+        app_state.redis_client = ValkeyClient(app_state.settings)
+        app_state.searxng_client = SearXNGClient(app_state.settings)
+        app_state.crawl4ai_client = Crawl4AIClient(app_state.settings)
+        app_state.trafilatura_client = (
+            TrafilaturaClient(app_state.settings) if app_state.settings.BS_FALLBACK_ENABLED else None
+        )
+        app_state.extraction_strategy = ExtractionStrategy(
+            crawl4ai=app_state.crawl4ai_client,
+            trafilatura=app_state.trafilatura_client,
+            settings=app_state.settings,
+        )
+        health.startup_time = time.time()
         yield
         logger.info("butterscout_shutdown_skip", reason="test_mode")
         return

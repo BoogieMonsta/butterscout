@@ -1,8 +1,6 @@
 """Unit tests for metrics service."""
 from __future__ import annotations
 
-from typing import cast
-
 import pytest
 
 from butterscout.services.metrics import (
@@ -48,7 +46,8 @@ def test_normalized_endpoint_prevents_cardinality() -> None:
     for i in range(10):
         metrics_service.record_request(
             method="POST",
-            endpoint=normalized_endpoint,  # Same pattern, not /api/v1/search?q=test{i}
+            # Same pattern, not /api/v1/search?q=test{i}
+            endpoint=normalized_endpoint,
             status=200,
             duration_seconds=1.0,
             source="ip",
@@ -61,9 +60,11 @@ def test_normalized_endpoint_prevents_cardinality() -> None:
 def test_cache_metrics() -> None:
     """Test cache hit/miss metrics."""
     # Get initial values
-    initial_hits = cache_hits_total._value._value if hasattr(cache_hits_total, "_value") else 0
+    initial_hits = cache_hits_total._value._value if hasattr(
+        cache_hits_total, "_value") else 0
     initial_misses = (
-        cache_misses_total._value._value if hasattr(cache_misses_total, "_value") else 0
+        cache_misses_total._value._value if hasattr(
+            cache_misses_total, "_value") else 0
     )
 
     # Record hits and misses
@@ -135,10 +136,12 @@ def test_metrics_endpoint() -> None:
 
     # Verify response
     assert response is not None
-    assert response.media_type is not None and response.media_type.startswith("text/plain")
+    assert response.media_type is not None and response.media_type.startswith(
+        "text/plain")
 
     # Verify content contains expected metrics
-    body_bytes: bytes = response.body.tobytes() if isinstance(response.body, memoryview) else response.body
+    body_bytes: bytes = response.body.tobytes() if isinstance(
+        response.body, memoryview) else response.body
     content = body_bytes.decode("utf-8")
     assert "butterscout_requests_total" in content
     assert "butterscout_uptime_seconds" in content
@@ -168,7 +171,8 @@ def test_metrics_with_source_label() -> None:
     )
 
     response = get_metrics()
-    body_bytes: bytes = response.body.tobytes() if isinstance(response.body, memoryview) else response.body
+    body_bytes: bytes = response.body.tobytes() if isinstance(
+        response.body, memoryview) else response.body
     content = body_bytes.decode("utf-8")
 
     # Verify both source types are in output
@@ -187,10 +191,14 @@ def test_histogram_buckets() -> None:
     def get_bounds(histogram: object) -> list[float]:
         """Extract upper bounds from prometheus histogram regardless of version internals."""
         if hasattr(histogram, "_upper_bounds"):
-            return list(getattr(histogram, "_upper_bounds"))
+            return [float(b) for b in getattr(histogram, "_upper_bounds")]
         # Fallback: derive from bucket objects if _upper_bounds is unavailable
         buckets = getattr(histogram, "_buckets", [])
-        return [getattr(b, "upper_bound", None) for b in buckets if hasattr(b, "upper_bound")]
+        return [
+            float(getattr(b, "upper_bound"))
+            for b in buckets
+            if hasattr(b, "upper_bound") and getattr(b, "upper_bound") is not None
+        ]
 
     # Verify searxng has buckets up to 10s (for retries)
     assert 10.0 in get_bounds(searxng_duration_seconds)

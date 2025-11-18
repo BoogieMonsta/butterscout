@@ -1,6 +1,8 @@
 """Unit tests for Valkey client."""
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 import pytest_asyncio
 
@@ -59,159 +61,202 @@ async def test_ping_returns_false_when_not_connected(valkey_client: ValkeyClient
     assert result is False
 
 
-# Integration tests - only run if Valkey/Redis is available
 @pytest.mark.asyncio
-@pytest.mark.integration
-async def test_redis_connection(settings: Settings) -> None:
-    """Test Valkey/Redis connection and ping."""
+async def test_initialization(settings: Settings) -> None:
+    """Test Valkey client initialization."""
     client = ValkeyClient(settings)
-    await client.connect()
 
-    try:
-        assert await client.ping() is True
-    finally:
-        await client.disconnect()
+    assert client.settings is settings
+    assert client.valkey is None
 
 
 @pytest.mark.asyncio
-@pytest.mark.integration
-async def test_redis_get_set(settings: Settings) -> None:
-    """Test basic get/set operations."""
+async def test_connect_disconnect_cycle(settings: Settings) -> None:
+    """Test connect/disconnect cycle using mocks."""
+    from unittest.mock import AsyncMock, patch, MagicMock
+
     client = ValkeyClient(settings)
-    await client.connect()
 
-    try:
-        # Set value
-        result = await client.set("test:key", "test_value", ttl_seconds=10)
-        assert result is True
+    with patch("butterscout.clients.redis_client.valkey.from_url") as mock_from_url:
+        mock_pool = AsyncMock()
+        # Make from_url return an awaitable
 
-        # Get value
-        value = await client.get("test:key")
-        assert value == "test_value"
+        async def async_from_url(*args: Any, **kwargs: Any) -> Any:
+            return mock_pool
+        mock_from_url.side_effect = async_from_url
 
-        # Check TTL
-        ttl = await client.ttl("test:key")
-        assert 0 < ttl <= 10
+        # Connect
+        await client.connect()
+        assert client.valkey is mock_pool
+        mock_from_url.assert_called_once()
 
-        # Clean up
-        await client.delete("test:key")
-    finally:
+        # Disconnect
         await client.disconnect()
+        assert client.valkey is None
+        mock_pool.aclose.assert_called_once()
 
 
 @pytest.mark.asyncio
-@pytest.mark.integration
-async def test_redis_exists(settings: Settings) -> None:
-    """Test key existence checking."""
+async def test_get_with_mocked_valkey(settings: Settings) -> None:
+    """Test get operation with mocked Valkey."""
+    from unittest.mock import AsyncMock
+
     client = ValkeyClient(settings)
-    await client.connect()
+    client.valkey = AsyncMock()
+    # Valkey client has decode_responses=True, so returns string not bytes
+    client.valkey.get = AsyncMock(return_value="test_value")
 
-    try:
-        # Key should not exist initially
-        assert await client.exists("test:exists") is False
+    result = await client.get("test:key")
 
-        # Set key
-        await client.set("test:exists", "value")
-
-        # Key should now exist
-        assert await client.exists("test:exists") is True
-
-        # Clean up
-        await client.delete("test:exists")
-
-        # Key should not exist after deletion
-        assert await client.exists("test:exists") is False
-    finally:
-        await client.disconnect()
+    assert result == "test_value"
+    client.valkey.get.assert_called_once_with("test:key")
 
 
 @pytest.mark.asyncio
-@pytest.mark.integration
-async def test_redis_incr(settings: Settings) -> None:
-    """Test increment operations."""
+async def test_get_returns_none_when_key_not_found(settings: Settings) -> None:
+    """Test get returns None when key doesn't exist."""
+    from unittest.mock import AsyncMock
+
     client = ValkeyClient(settings)
-    await client.connect()
+    client.valkey = AsyncMock()
+    client.valkey.get = AsyncMock(return_value=None)
 
-    try:
-        # First increment creates key with value 1
-        value = await client.incr("test:counter")
-        assert value == 1
+    result = await client.get("test:missing")
 
-        # Second increment increases to 2
-        value = await client.incr("test:counter")
-        assert value == 2
-
-        # Third increment increases to 3
-        value = await client.incr("test:counter")
-        assert value == 3
-
-        # Clean up
-        await client.delete("test:counter")
-    finally:
-        await client.disconnect()
+    assert result is None
 
 
 @pytest.mark.asyncio
-@pytest.mark.integration
-async def test_redis_expire(settings: Settings) -> None:
-    """Test setting expiration on keys."""
+async def test_set_with_ttl(settings: Settings) -> None:
+    """Test set operation with TTL."""
+    from unittest.mock import AsyncMock
+
     client = ValkeyClient(settings)
-    await client.connect()
+    client.valkey = AsyncMock()
+    client.valkey.setex = AsyncMock(return_value=True)
 
-    try:
-        # Set key without expiration
-        await client.set("test:expire", "value")
+    result = await client.set("test:key", "value", ttl_seconds=60)
 
-        # TTL should be -1 (no expiration)
-        ttl = await client.ttl("test:expire")
-        assert ttl == -1
-
-        # Set expiration
-        result = await client.expire("test:expire", 60)
-        assert result is True
-
-        # TTL should now be set
-        ttl = await client.ttl("test:expire")
-        assert 0 < ttl <= 60
-
-        # Clean up
-        await client.delete("test:expire")
-    finally:
-        await client.disconnect()
+    assert result is True
+    client.valkey.setex.assert_called_once_with("test:key", 60, "value")
 
 
 @pytest.mark.asyncio
-@pytest.mark.integration
-async def test_redis_delete(settings: Settings) -> None:
-    """Test key deletion."""
+async def test_set_without_ttl(settings: Settings) -> None:
+    """Test set operation without TTL."""
+    from unittest.mock import AsyncMock
+
     client = ValkeyClient(settings)
-    await client.connect()
+    client.valkey = AsyncMock()
+    client.valkey.set = AsyncMock(return_value=True)
 
-    try:
-        # Set a key
-        await client.set("test:delete", "value")
+    result = await client.set("test:key", "value")
 
-        # Delete should return 1 (one key deleted)
-        count = await client.delete("test:delete")
-        assert count == 1
-
-        # Deleting non-existent key should return 0
-        count = await client.delete("test:delete")
-        assert count == 0
-    finally:
-        await client.disconnect()
+    assert result is True
+    client.valkey.set.assert_called_once_with("test:key", "value")
 
 
 @pytest.mark.asyncio
-@pytest.mark.integration
-async def test_redis_ttl_nonexistent_key(settings: Settings) -> None:
-    """Test TTL on non-existent key."""
-    client = ValkeyClient(settings)
-    await client.connect()
+async def test_delete_single_key(settings: Settings) -> None:
+    """Test deleting a single key."""
+    from unittest.mock import AsyncMock
 
-    try:
-        # TTL on non-existent key should return -2
-        ttl = await client.ttl("test:nonexistent")
-        assert ttl == -2
-    finally:
-        await client.disconnect()
+    client = ValkeyClient(settings)
+    client.valkey = AsyncMock()
+    client.valkey.delete = AsyncMock(return_value=1)
+
+    result = await client.delete("test:key")
+
+    assert result == 1
+    client.valkey.delete.assert_called_once_with("test:key")
+
+
+@pytest.mark.asyncio
+async def test_exists_key_present(settings: Settings) -> None:
+    """Test exists when key is present."""
+    from unittest.mock import AsyncMock
+
+    client = ValkeyClient(settings)
+    client.valkey = AsyncMock()
+    client.valkey.exists = AsyncMock(return_value=1)
+
+    result = await client.exists("test:key")
+
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_exists_key_absent(settings: Settings) -> None:
+    """Test exists when key is absent."""
+    from unittest.mock import AsyncMock
+
+    client = ValkeyClient(settings)
+    client.valkey = AsyncMock()
+    client.valkey.exists = AsyncMock(return_value=0)
+
+    result = await client.exists("test:key")
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_incr_operation(settings: Settings) -> None:
+    """Test increment operation."""
+    from unittest.mock import AsyncMock
+
+    client = ValkeyClient(settings)
+    client.valkey = AsyncMock()
+    client.valkey.incr = AsyncMock(return_value=5)
+
+    result = await client.incr("test:counter")
+
+    assert result == 5
+    client.valkey.incr.assert_called_once_with("test:counter")
+
+
+@pytest.mark.asyncio
+async def test_expire_operation(settings: Settings) -> None:
+    """Test expire operation."""
+    from unittest.mock import AsyncMock
+
+    client = ValkeyClient(settings)
+    client.valkey = AsyncMock()
+    client.valkey.expire = AsyncMock(return_value=1)
+
+    result = await client.expire("test:key", 60)
+
+    assert result == 1
+    client.valkey.expire.assert_called_once_with("test:key", 60)
+
+
+@pytest.mark.asyncio
+async def test_ttl_operation(settings: Settings) -> None:
+    """Test TTL operation."""
+    from unittest.mock import AsyncMock
+
+    client = ValkeyClient(settings)
+    client.valkey = AsyncMock()
+    client.valkey.ttl = AsyncMock(return_value=120)
+
+    result = await client.ttl("test:key")
+
+    assert result == 120
+    client.valkey.ttl.assert_called_once_with("test:key")
+
+
+@pytest.mark.asyncio
+async def test_ping_when_connected(settings: Settings) -> None:
+    """Test ping when connected."""
+    from unittest.mock import AsyncMock
+
+    client = ValkeyClient(settings)
+    client.valkey = AsyncMock()
+    client.valkey.ping = AsyncMock(return_value=True)
+
+    result = await client.ping()
+
+    assert result is True
+    client.valkey.ping.assert_called_once()
+
+
+# Integration tests moved to tests/integration/test_redis_integration.py
