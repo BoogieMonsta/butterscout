@@ -1,0 +1,36 @@
+# Development overrides for docker-compose.yml
+# This file is automatically loaded by Docker Compose alongside docker-compose.yml
+# It provides development-specific configurations like hot reload and debug logging
+
+services:
+  butterscout-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    volumes:
+      # Mount source code for hot reload
+      - ./butterscout:/app/butterscout:ro
+      - ./tests:/app/tests:ro
+      - ./pyproject.toml:/app/pyproject.toml:ro
+      - ./uv.lock:/app/uv.lock:ro
+    environment:
+      # Enable debug logging in development
+      BS_LOG_LEVEL: debug
+      # Enable metrics for local testing
+      BS_ENABLE_METRICS: "true"
+    # Override command for hot reload
+    command: ["uv", "run", "uvicorn", "butterscout.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  # Development mode: expose all ports for direct access
+  searxng:
+    ports:
+      - "8080:8080"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  crawl4ai:
+    ports:
+      - "11235:11235"

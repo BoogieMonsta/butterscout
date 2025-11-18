@@ -184,11 +184,19 @@ def test_histogram_buckets() -> None:
         searxng_duration_seconds,
     )
 
+    def get_bounds(histogram: object) -> list[float]:
+        """Extract upper bounds from prometheus histogram regardless of version internals."""
+        if hasattr(histogram, "_upper_bounds"):
+            return list(getattr(histogram, "_upper_bounds"))
+        # Fallback: derive from bucket objects if _upper_bounds is unavailable
+        buckets = getattr(histogram, "_buckets", [])
+        return [getattr(b, "upper_bound", None) for b in buckets if hasattr(b, "upper_bound")]
+
     # Verify searxng has buckets up to 10s (for retries)
-    assert 10.0 in searxng_duration_seconds._buckets
+    assert 10.0 in get_bounds(searxng_duration_seconds)
 
     # Verify extraction has buckets up to 10s
-    assert 10.0 in extraction_duration_seconds._buckets
+    assert 10.0 in get_bounds(extraction_duration_seconds)
 
     # Verify request duration has proper buckets
-    assert 5.0 in request_duration_seconds._buckets
+    assert 5.0 in get_bounds(request_duration_seconds)

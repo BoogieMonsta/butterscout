@@ -1,0 +1,34 @@
+# Production Docker Compose configuration
+# Use this file for production deployments without development overrides
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  butterscout-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    # Don't expose internal service ports in production
+    ports:
+      - "8000:8000"
+    environment:
+      # Production-specific settings
+      BS_LOG_LEVEL: ${BS_LOG_LEVEL:-info}
+      BS_ENABLE_METRICS: ${BS_ENABLE_METRICS:-true}
+    # No volume mounts in production - use image code
+    restart: always
+
+  searxng:
+    # Don't expose SearXNG port in production (internal only)
+    ports: []
+    restart: always
+
+  crawl4ai:
+    # Don't expose Crawl4AI port in production (internal only)
+    ports: []
+    restart: always
+
+  redis:
+    # Don't expose Redis port in production (internal only)
+    ports: []
+    restart: always

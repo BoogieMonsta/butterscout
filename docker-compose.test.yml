@@ -1,0 +1,129 @@
+# Testing configuration for CI/CD pipelines
+# Usage: docker compose -f docker-compose.yml -f docker-compose.test.yml up -d
+# Run your test suite from the host or CI runner against these services.
+#
+# This configuration:
+# - Uses faster timeouts for quicker test feedback
+# - Disables persistence (ephemeral volumes)
+# - Reduces resource limits for parallel testing
+# - Enables verbose logging for debugging
+
+services:
+  butterscout-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      # Enable debug logging for test troubleshooting
+      BS_LOG_LEVEL: debug
+      BS_ENABLE_METRICS: "true"
+
+      # Faster timeouts for testing
+      BS_EXTRACTION_TIMEOUT_MS: 1500
+      BS_FALLBACK_TIMEOUT_MS: 1000
+      BS_REQUEST_TIMEOUT_MS: 4000
+      BS_HEALTH_TIMEOUT_MS: 500
+
+      # Reduced limits for faster tests
+      BS_MAX_RESULTS: 5
+      BS_MAX_CONCURRENT_EXTRACTIONS: 2
+
+      # Disable rate limiting in tests
+      BS_RATE_LIMIT_PER_HOUR: 10000
+      BS_API_KEY_RATE_LIMIT_PER_HOUR: 10000
+      BS_GLOBAL_RATE_LIMIT_PER_HOUR: 100000
+
+    # Reduced resources for parallel CI runners
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    # Don't expose ports in CI (unless needed for testing)
+    ports: []
+
+  searxng:
+    environment:
+      - INSTANCE_NAME=butterscout-test-searxng
+
+    # Faster health checks for testing
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    ports: []
+
+  crawl4ai:
+    # Faster health checks
+    healthcheck:
+      test: ["CMD", "python", "-c", "import http.client; http.client.HTTPConnection('localhost', 11235, timeout=3).connect()"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    ports: []
+
+  redis:
+    command:
+      - redis-server
+      - --save ""
+      - --appendonly no
+      - --maxmemory 256mb
+      - --maxmemory-policy allkeys-lru
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 2s
+      retries: 3
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.05'
+          memory: 64M
+
+    ports: []
+
+# Use tmpfs for faster ephemeral volumes in testing
+volumes:
+  redis-data:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+  searxng-data:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs

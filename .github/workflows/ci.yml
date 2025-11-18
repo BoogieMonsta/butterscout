@@ -2,9 +2,77 @@ name: CI
 
 on:
   push:
+    branches: [ main, 'claude/**' ]
   pull_request:
+    branches: [ main ]
 
 jobs:
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Add uv to PATH
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Lint with ruff
+        run: uv run ruff check butterscout/ tests/
+
+      - name: Type check with mypy
+        run: uv run mypy --strict butterscout/
+
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Add uv to PATH
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run tests
+        run: uv run pytest tests/ -v --cov=butterscout --cov-report=term-missing
+        env:
+          BS_REDIS_URL: redis://localhost:6379/0
+          BS_SEARXNG_URL: http://localhost:8080
+          BS_CRAWL4AI_URL: http://localhost:11235
+          BS_SKIP_STARTUP: "1"
+
   openapi-validate:
     runs-on: ubuntu-latest
     steps:
@@ -27,3 +95,53 @@ jobs:
 
       - name: Validate openapi.yaml
         run: uv run python -m openapi_spec_validator openapi.yaml
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build production image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: production
+          tags: butterscout:test-production
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          load: true
+
+      - name: Build development image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: development
+          tags: butterscout:test-development
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          load: true
+
+      - name: Test production image starts
+        run: |
+          docker run -d --name test-api \
+            -e BS_SEARXNG_URL=http://searxng:8080 \
+            -e BS_CRAWL4AI_URL=http://crawl4ai:11235 \
+            -e BS_REDIS_URL=redis://redis:6379 \
+            -e BS_SKIP_STARTUP=1 \
+            butterscout:test-production
+
+          sleep 5
+          docker logs test-api
+          docker stop test-api
+          docker rm test-api
+
+      - name: Check image size
+        run: |
+          echo "Production image size:"
+          docker images butterscout:test-production --format "{{.Size}}"
+          echo "Development image size:"
+          docker images butterscout:test-development --format "{{.Size}}"

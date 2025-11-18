@@ -1,0 +1,72 @@
+# SearXNG configuration for Butterscout
+# This file configures SearXNG to work optimally with Butterscout API
+
+use_default_settings: true
+
+general:
+  instance_name: "butterscout-searxng"
+  enable_metrics: false
+  # Disable debug mode in production
+  debug: false
+
+search:
+  # Safe search: 0 = off, 1 = moderate, 2 = strict
+  safe_search: 0
+  # Disable autocomplete to reduce overhead
+  autocomplete: ""
+  # Default language
+  default_lang: "en"
+  # Supported output formats
+  formats:
+    - html
+    - json
+
+server:
+  port: 8080
+  bind_address: "0.0.0.0"
+  # SECURITY: Change this secret in production! Generate with: openssl rand -hex 32
+  # This default value is INSECURE and must be replaced before production deployment
+  secret_key: "INSECURE_DEFAULT_CHANGE_IN_PRODUCTION"
+  # Disable rate limiter (handled by Butterscout API)
+  limiter: false
+  # Disable image proxy for better performance
+  image_proxy: false
+
+ui:
+  static_use_hash: true
+  default_theme: simple
+  theme_args:
+    simple_style: dark
+
+# Engine configuration
+# Note: Only enable engines that don't require API keys for easier setup
+# You can customize this based on your needs
+
+engines:
+  # Keep default engines enabled
+  # Major search engines that work without API keys
+  - name: google
+    disabled: false
+  - name: bing
+    disabled: false
+  - name: duckduckgo
+    disabled: false
+
+  # Disable engines that require API keys or are unreliable
+  - name: wikipedia
+    disabled: true
+  - name: reddit
+    disabled: true
+  - name: github
+    disabled: true
+  - name: stackoverflow
+    disabled: true
+
+# Disable telemetry and tracking
+outgoing:
+  request_timeout: 2.0
+  max_request_timeout: 10.0
+  useragent_suffix: ""
+  pool_connections: 100
+  pool_maxsize: 20
+  enable_http2: true
