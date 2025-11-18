@@ -1,6 +1,7 @@
 """Application configuration using Pydantic settings."""
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional
 
 from pydantic import ValidationError, field_validator
@@ -48,6 +49,9 @@ class Settings(BaseSettings):
 
     # CORS configuration
     BS_CORS_ORIGINS: str = "*"  # comma-separated origins or "*" for all
+
+    # Security settings
+    BS_PRODUCTION_MODE: bool = False  # Enable strict security checks for production
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -113,6 +117,37 @@ def validate_settings(settings: Settings) -> None:
 
     if settings.BS_MAX_RESULTS > 25:
         errors.append("BS_MAX_RESULTS cannot exceed 25")
+
+    # Production mode security checks
+    if settings.BS_PRODUCTION_MODE:
+        # Check for insecure SearXNG secret key
+        searxng_config_path = Path("searxng-config/settings.yml")
+        if searxng_config_path.exists():
+            try:
+                with open(searxng_config_path, encoding="utf-8") as f:
+                    config_content = f.read()
+                    if "INSECURE_DEFAULT_CHANGE_IN_PRODUCTION" in config_content:
+                        errors.append(
+                            "SearXNG is using the insecure default secret_key. "
+                            "Generate a new secret with: openssl rand -hex 32"
+                        )
+            except Exception:
+                # If we can't read the file, just skip this check
+                pass
+
+        # Check for secure CORS configuration
+        if settings.BS_CORS_ORIGINS == "*":
+            errors.append(
+                "BS_CORS_ORIGINS is set to '*' which allows all origins. "
+                "In production, specify allowed origins explicitly."
+            )
+
+        # Check for API key in production
+        if not settings.BS_API_KEY:
+            errors.append(
+                "BS_API_KEY is not set. "
+                "In production, set a strong API key: openssl rand -base64 32"
+            )
 
     if errors:
         raise ValueError("Configuration errors:\n  - " + "\n  - ".join(errors))

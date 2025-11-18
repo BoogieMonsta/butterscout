@@ -22,8 +22,9 @@ def test_routers_included() -> None:
 
 def test_middleware_registered() -> None:
     """Test that middleware is registered."""
-    from butterscout.main import app
     from fastapi.middleware.cors import CORSMiddleware
+
+    from butterscout.main import app
 
     # Check CORS middleware is registered
     assert any(m.cls is CORSMiddleware for m in app.user_middleware)

@@ -1,6 +1,7 @@
 """Metrics endpoint router."""
 from __future__ import annotations
 
+import secrets
 from typing import TYPE_CHECKING
 
 import structlog
@@ -38,8 +39,12 @@ class MetricsAuth:
             HTTPException: If authentication fails
         """
         if self.settings.BS_API_KEY:
-            # If API key is configured, require it for metrics
-            if not x_api_key or x_api_key != self.settings.BS_API_KEY:
+            # Use constant-time comparison to prevent timing attacks
+            is_valid = (
+                x_api_key is not None
+                and secrets.compare_digest(x_api_key, self.settings.BS_API_KEY)
+            )
+            if not is_valid:
                 raise HTTPException(status_code=401, detail="Unauthorized")
 
 

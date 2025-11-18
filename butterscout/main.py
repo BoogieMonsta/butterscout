@@ -20,6 +20,7 @@ from butterscout.clients.redis_client import ValkeyClient
 from butterscout.clients.searxng_client import SearXNGClient
 from butterscout.clients.trafilatura_client import TrafilaturaClient
 from butterscout.config import load_settings
+from butterscout.middleware.security_headers import add_security_headers
 from butterscout.routers import health, search
 from butterscout.routers import metrics as metrics_router
 from butterscout.services.metrics import metrics_service
@@ -200,6 +201,15 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
+
+# Security headers middleware
+@app.middleware("http")
+async def security_headers_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    """Add security headers to all responses."""
+    return await add_security_headers(request, call_next)
 
 
 @app.middleware("http")

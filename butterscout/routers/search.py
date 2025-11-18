@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import secrets
 import time
 from datetime import datetime, timezone
 from typing import Optional
@@ -100,7 +101,12 @@ async def search(
 
     # 2. Authentication (if required)
     if app_state.settings.BS_API_KEY:
-        if not x_api_key or x_api_key != app_state.settings.BS_API_KEY:
+        # Use constant-time comparison to prevent timing attacks
+        is_valid = (
+            x_api_key is not None
+            and secrets.compare_digest(x_api_key, app_state.settings.BS_API_KEY)
+        )
+        if not is_valid:
             if hasattr(request.state, "error_code"):
                 request.state.error_code = "UNAUTHORIZED"
             logger.warning(
