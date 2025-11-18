@@ -1,14 +1,15 @@
 """Unit tests for redis manager."""
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from butterscout.config import Settings
 from butterscout.utils.redis_manager import (
+    close_valkey,
     get_valkey_client,
     init_valkey,
-    close_valkey,
     valkey_lifespan,
 )
 

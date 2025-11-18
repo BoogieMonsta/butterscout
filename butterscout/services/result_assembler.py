@@ -4,7 +4,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal, cast
 from urllib.parse import urlparse
 
-from pydantic import HttpUrl
 import structlog
 
 if TYPE_CHECKING:
@@ -46,7 +45,9 @@ class ResultAssembler:
             url_str = str(search_result.url)
             extracted = content_map.get(url_str)
 
-            def _normalized_extractor(value: str | None) -> Literal["crawl4ai", "trafilatura", "none"]:
+            def _normalized_extractor(
+                value: str | None,
+            ) -> Literal["crawl4ai", "trafilatura", "none"]:
                 if value in ("crawl4ai", "trafilatura"):
                     return cast(Literal["crawl4ai", "trafilatura"], value)
                 return "none"

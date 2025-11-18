@@ -147,9 +147,10 @@ def test_get_normalized_endpoint_with_non_string_path() -> None:
 async def test_uptime_updater() -> None:
     """Test uptime updater background task."""
     import asyncio
+    from unittest.mock import patch
+
     from butterscout.main import uptime_updater
     from butterscout.services.metrics import metrics_service
-    from unittest.mock import patch
 
     with patch.object(metrics_service, 'update_uptime') as mock_update:
         # Create task

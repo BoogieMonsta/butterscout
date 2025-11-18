@@ -10,11 +10,7 @@ from pydantic import HttpUrl
 
 from butterscout.models.internal import ExtractedContent, NormalizedSearchResult
 from butterscout.models.responses import (
-    ResponseMetadata,
-    ResultMetadata,
-    ResultScores,
     SearchResponse,
-    SearchResult,
 )
 
 

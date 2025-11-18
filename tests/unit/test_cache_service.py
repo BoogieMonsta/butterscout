@@ -1,7 +1,6 @@
 """Unit tests for cache service."""
 from __future__ import annotations
 
-import asyncio
 from typing import cast
 
 import pytest
@@ -13,7 +12,6 @@ from butterscout.config import Settings
 from butterscout.models.requests import SearchRequest
 from butterscout.models.responses import ResponseMetadata, SearchResponse
 from butterscout.services.cache_service import CacheService
-from butterscout.utils.redis_keys import generate_cache_key
 
 
 def _url(url_str: str) -> HttpUrl:

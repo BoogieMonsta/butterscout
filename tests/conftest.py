@@ -11,7 +11,6 @@ from fastapi.testclient import TestClient
 from butterscout.clients.crawl4ai_client import Crawl4AIClient
 from butterscout.clients.redis_client import ValkeyClient
 from butterscout.clients.searxng_client import SearXNGClient
-from butterscout.clients.trafilatura_client import TrafilaturaClient
 from butterscout.config import Settings
 
 
@@ -79,9 +78,11 @@ def mock_redis_client() -> ValkeyClient:
 @pytest.fixture
 def mock_searxng_client() -> SearXNGClient:
     """Mock SearXNG client for unit tests"""
-    from butterscout.models.internal import NormalizedSearchResult
-    from pydantic import HttpUrl
     from typing import cast
+
+    from pydantic import HttpUrl
+
+    from butterscout.models.internal import NormalizedSearchResult
 
     def _url(url_str: str) -> HttpUrl:
         return cast(HttpUrl, url_str)
@@ -104,9 +105,11 @@ def mock_searxng_client() -> SearXNGClient:
 @pytest.fixture
 def mock_crawl4ai_client() -> Crawl4AIClient:
     """Mock Crawl4AI client for unit tests"""
-    from butterscout.models.internal import ExtractedContent
-    from pydantic import HttpUrl
     from typing import cast
+
+    from pydantic import HttpUrl
+
+    from butterscout.models.internal import ExtractedContent
 
     def _url(url_str: str) -> HttpUrl:
         return cast(HttpUrl, url_str)

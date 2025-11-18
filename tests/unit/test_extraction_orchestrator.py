@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import cast
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 from _pytest.logging import LogCaptureFixture

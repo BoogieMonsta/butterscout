@@ -73,7 +73,7 @@ async def test_initialization(settings: Settings) -> None:
 @pytest.mark.asyncio
 async def test_connect_disconnect_cycle(settings: Settings) -> None:
     """Test connect/disconnect cycle using mocks."""
-    from unittest.mock import AsyncMock, patch, MagicMock
+    from unittest.mock import AsyncMock, patch
 
     client = ValkeyClient(settings)
 

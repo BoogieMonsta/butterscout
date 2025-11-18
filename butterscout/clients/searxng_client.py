@@ -5,8 +5,8 @@ import time
 from typing import Optional, cast
 
 import httpx
-from pydantic import HttpUrl
 import structlog
+from pydantic import HttpUrl
 
 from butterscout.config import Settings
 from butterscout.models.internal import NormalizedSearchResult
@@ -214,9 +214,10 @@ class SearXNGClient:
                 # Calculate score (SearXNG doesn't always provide scores)
                 # Use inverse of position as fallback
                 score_value = item.get("score")
-                score = float(score_value) if isinstance(score_value, (int, float, str)) else 1.0 / (
-                    idx + 1
-                )
+                if isinstance(score_value, (int, float, str)):
+                    score = float(score_value)
+                else:
+                    score = 1.0 / (idx + 1)
 
                 # Validate URL scheme (only http/https allowed)
                 url_obj = item.get("url")

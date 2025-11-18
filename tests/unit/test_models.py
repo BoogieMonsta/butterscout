@@ -4,7 +4,6 @@ from pydantic import ValidationError
 
 from butterscout.models.internal import CacheKey
 from butterscout.models.requests import SearchOptions, SearchRequest
-from butterscout.models.responses import SearchResponse
 
 
 @pytest.mark.unit

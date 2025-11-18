@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from typing import cast
 
-import pytest
 from pydantic import HttpUrl
 
 from butterscout.models.responses import ResultMetadata, ResultScores, SearchResult
@@ -95,7 +94,10 @@ def test_filter_mixed_results() -> None:
             title="Good Article",
             url=_url("https://example1.com/article"),
             snippet="Good snippet",
-            content="This is good content with many words here to pass the filter test successfully.",
+            content=(
+                "This is good content with many words "
+                "here to pass the filter test successfully."
+            ),
             metadata=ResultMetadata(
                 domain="example1.com",
                 word_count=50,
@@ -137,7 +139,10 @@ def test_filter_mixed_results() -> None:
             title="Another Good Article",
             url=_url("https://example4.com/article"),
             snippet="Another good snippet",
-            content="This is another good article with sufficient content to pass the minimum word count.",
+            content=(
+                "This is another good article with sufficient "
+                "content to pass the minimum word count."
+            ),
             metadata=ResultMetadata(
                 domain="example4.com",
                 word_count=35,

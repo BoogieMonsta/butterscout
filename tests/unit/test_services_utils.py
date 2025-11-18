@@ -1,9 +1,9 @@
 """Unit tests for services and utilities."""
 import pytest
-from butterscout.services.deduplicator import URLDeduplicator
-from butterscout.services.ranker import Ranker
-from butterscout.utils.redis_keys import generate_cache_key
+
 from butterscout.models.requests import SearchRequest
+from butterscout.services.deduplicator import URLDeduplicator
+from butterscout.utils.redis_keys import generate_cache_key
 
 
 @pytest.mark.unit
@@ -18,9 +18,11 @@ def test_url_normalization() -> None:
 @pytest.mark.unit
 def test_deduplication() -> None:
     """Test duplicate URLs are removed"""
-    from butterscout.models.internal import NormalizedSearchResult
-    from pydantic import HttpUrl
     from typing import cast
+
+    from pydantic import HttpUrl
+
+    from butterscout.models.internal import NormalizedSearchResult
 
     def _url(url_str: str) -> HttpUrl:
         return cast(HttpUrl, url_str)

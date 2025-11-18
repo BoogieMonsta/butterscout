@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from typing import cast
 
-import pytest
 from pydantic import HttpUrl
 
 from butterscout.models.internal import ExtractedContent, NormalizedSearchResult

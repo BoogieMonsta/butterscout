@@ -1,9 +1,8 @@
 """Unit tests for rate limiter."""
 from __future__ import annotations
 
-import asyncio
 import time
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -11,7 +10,6 @@ from butterscout.clients.redis_client import ValkeyClient
 from butterscout.config import Settings
 from butterscout.services.rate_limiter import RateLimiter
 from butterscout.utils.rate_limit_headers import generate_rate_limit_headers
-from butterscout.utils.redis_keys import generate_global_rate_limit_key
 
 
 @pytest.fixture
@@ -78,7 +76,9 @@ async def test_rate_limit_headers_negative_remaining() -> None:
 
 
 @pytest.mark.asyncio
-async def test_rate_limiter_initialization(settings: Settings, mock_valkey_client: ValkeyClient) -> None:
+async def test_rate_limiter_initialization(
+    settings: Settings, mock_valkey_client: ValkeyClient
+) -> None:
     """Test rate limiter initialization."""
     limiter = RateLimiter(mock_valkey_client, settings)
 

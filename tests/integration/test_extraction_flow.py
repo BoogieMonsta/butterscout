@@ -50,7 +50,10 @@ async def test_complete_extraction_flow(settings: Settings) -> None:
         else:
             return ExtractedContent(
                 url=url,
-                content=f"This is good quality content from {url_str} with many words to pass the filter test.",
+                content=(
+                    f"High quality content from {url_str} "
+                    "with enough words to pass the filter."
+                ),
                 word_count=50,
                 extracted_by="crawl4ai",
                 extraction_ok=True,

@@ -39,7 +39,7 @@ def is_domain_allowed(
             for blocked in blocked_domains:
                 if not blocked:  # Skip empty strings
                     continue
-                blocked_clean = blocked.lower().lstrip("www.")
+                blocked_clean = blocked.lower().removeprefix("www.")
                 # Strip port from blocked domain too
                 if ":" in blocked_clean:
                     blocked_clean = blocked_clean.split(":")[0]
@@ -53,7 +53,7 @@ def is_domain_allowed(
                 if not allowed:  # Skip empty strings
                     continue
                 has_valid_allowed = True
-                allowed_clean = allowed.lower().lstrip("www.")
+                allowed_clean = allowed.lower().removeprefix("www.")
                 # Strip port from allowed domain too
                 if ":" in allowed_clean:
                     allowed_clean = allowed_clean.split(":")[0]

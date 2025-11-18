@@ -1,7 +1,9 @@
 from typing import List
-from urllib.parse import urlparse, parse_qs, urlencode
-from butterscout.models.internal import NormalizedSearchResult
+from urllib.parse import parse_qs, urlencode, urlparse
+
 import structlog
+
+from butterscout.models.internal import NormalizedSearchResult
 
 logger = structlog.get_logger()
 

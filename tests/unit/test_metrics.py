@@ -1,8 +1,6 @@
 """Unit tests for metrics service."""
 from __future__ import annotations
 
-import pytest
-
 from butterscout.services.metrics import (
     cache_hits_total,
     cache_misses_total,
@@ -43,7 +41,7 @@ def test_normalized_endpoint_prevents_cardinality() -> None:
     # All should use the same normalized endpoint pattern
     normalized_endpoint = "/api/v1/search"
 
-    for i in range(10):
+    for _ in range(10):
         metrics_service.record_request(
             method="POST",
             # Same pattern, not /api/v1/search?q=test{i}
@@ -59,14 +57,6 @@ def test_normalized_endpoint_prevents_cardinality() -> None:
 
 def test_cache_metrics() -> None:
     """Test cache hit/miss metrics."""
-    # Get initial values
-    initial_hits = cache_hits_total._value._value if hasattr(
-        cache_hits_total, "_value") else 0
-    initial_misses = (
-        cache_misses_total._value._value if hasattr(
-            cache_misses_total, "_value") else 0
-    )
-
     # Record hits and misses
     metrics_service.record_cache_hit()
     metrics_service.record_cache_miss()
@@ -191,13 +181,13 @@ def test_histogram_buckets() -> None:
     def get_bounds(histogram: object) -> list[float]:
         """Extract upper bounds from prometheus histogram regardless of version internals."""
         if hasattr(histogram, "_upper_bounds"):
-            return [float(b) for b in getattr(histogram, "_upper_bounds")]
+            return [float(b) for b in histogram._upper_bounds]
         # Fallback: derive from bucket objects if _upper_bounds is unavailable
         buckets = getattr(histogram, "_buckets", [])
         return [
-            float(getattr(b, "upper_bound"))
+            float(b.upper_bound)
             for b in buckets
-            if hasattr(b, "upper_bound") and getattr(b, "upper_bound") is not None
+            if hasattr(b, "upper_bound") and b.upper_bound is not None
         ]
 
     # Verify searxng has buckets up to 10s (for retries)

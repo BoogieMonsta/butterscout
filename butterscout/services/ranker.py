@@ -1,8 +1,10 @@
 from typing import List
 from urllib.parse import urlparse
-from butterscout.models.responses import SearchResult
-from butterscout.config import Settings
+
 import structlog
+
+from butterscout.config import Settings
+from butterscout.models.responses import SearchResult
 
 logger = structlog.get_logger()
 
@@ -49,7 +51,7 @@ class Ranker:
 
         # Update rank numbers
         ranked_results = []
-        for rank_idx, (score, original_idx, result) in enumerate(scored_results):
+        for rank_idx, (_score, _original_idx, result) in enumerate(scored_results):
             result.scores.rank = rank_idx + 1
             ranked_results.append(result)
 

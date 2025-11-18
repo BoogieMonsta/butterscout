@@ -1,13 +1,13 @@
 """Unit tests for SearXNG client."""
 from typing import Any
 
-import pytest
 import httpx
+import pytest
 import respx
 
 from butterscout.clients.searxng_client import SearXNGClient
 from butterscout.config import Settings
-from butterscout.models.requests import SearchRequest, SearchOptions
+from butterscout.models.requests import SearchOptions, SearchRequest
 
 
 @pytest.mark.asyncio

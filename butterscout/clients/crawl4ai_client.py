@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import time
-from typing import Optional, cast
+from typing import Optional
 
 import httpx
-from pydantic import HttpUrl
 import structlog
+from pydantic import HttpUrl
 
 from butterscout.config import Settings
 from butterscout.models.internal import ExtractedContent

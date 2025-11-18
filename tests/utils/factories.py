@@ -1,10 +1,11 @@
 """Test data factories"""
 
 from typing import Literal, cast
+
 from pydantic import HttpUrl
 
-from butterscout.models.internal import NormalizedSearchResult, ExtractedContent
-from butterscout.models.responses import SearchResult, ResultMetadata, ResultScores
+from butterscout.models.internal import ExtractedContent, NormalizedSearchResult
+from butterscout.models.responses import ResultMetadata, ResultScores, SearchResult
 
 
 def _url(url_str: str) -> HttpUrl:

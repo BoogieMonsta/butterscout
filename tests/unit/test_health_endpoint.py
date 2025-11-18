@@ -22,8 +22,9 @@ async def test_health_endpoint_structure_mocked() -> None:
         mock_app_state.crawl4ai_client.health_check = AsyncMock(return_value=True)
 
         # Import after patching to avoid import errors
-        from butterscout.routers.health import health_check
         from fastapi import Response
+
+        from butterscout.routers.health import health_check
 
         response = Response()
         result = await health_check(response)
@@ -58,8 +59,9 @@ async def test_health_endpoint_degraded_state() -> None:
         mock_app_state.searxng_client.health_check = AsyncMock(return_value=True)
         mock_app_state.crawl4ai_client.health_check = AsyncMock(return_value=True)
 
-        from butterscout.routers.health import health_check
         from fastapi import Response
+
+        from butterscout.routers.health import health_check
 
         response = Response()
         result = await health_check(response)
@@ -92,8 +94,9 @@ async def test_health_endpoint_timeout_handling() -> None:
         mock_app_state.searxng_client.health_check = AsyncMock(return_value=True)
         mock_app_state.crawl4ai_client.health_check = AsyncMock(return_value=True)
 
-        from butterscout.routers.health import health_check
         from fastapi import Response
+
+        from butterscout.routers.health import health_check
 
         response = Response()
         result = await health_check(response)

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Iterator
 
 import pytest
 
@@ -81,9 +80,11 @@ def test_url_normalization_performance() -> None:
 @pytest.mark.unit
 def test_deduplication_performance() -> None:
     """Test deduplication performance with many results"""
-    from butterscout.models.internal import NormalizedSearchResult
-    from pydantic import HttpUrl
     from typing import cast
+
+    from pydantic import HttpUrl
+
+    from butterscout.models.internal import NormalizedSearchResult
 
     def _url(url_str: str) -> HttpUrl:
         return cast(HttpUrl, url_str)
@@ -182,7 +183,7 @@ async def test_concurrent_cache_operations_performance(
 @pytest.mark.unit
 def test_model_validation_performance() -> None:
     """Test model validation doesn't slow down request processing"""
-    from butterscout.models.requests import SearchRequest, SearchOptions
+    from butterscout.models.requests import SearchOptions, SearchRequest
 
     start = time.perf_counter()
     for i in range(1000):

@@ -95,7 +95,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app_state.searxng_client = SearXNGClient(app_state.settings)
         app_state.crawl4ai_client = Crawl4AIClient(app_state.settings)
         app_state.trafilatura_client = (
-            TrafilaturaClient(app_state.settings) if app_state.settings.BS_FALLBACK_ENABLED else None
+            TrafilaturaClient(app_state.settings)
+            if app_state.settings.BS_FALLBACK_ENABLED
+            else None
         )
         app_state.extraction_strategy = ExtractionStrategy(
             crawl4ai=app_state.crawl4ai_client,

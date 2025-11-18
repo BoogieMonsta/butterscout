@@ -1,12 +1,10 @@
 """Integration tests for logging and metrics middleware."""
 from __future__ import annotations
 
-import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi import FastAPI, Request
-from fastapi.testclient import TestClient
+from fastapi import Request
 
 from butterscout.main import get_client_ip, get_normalized_endpoint
 from butterscout.utils.logging import configure_logging
@@ -85,7 +83,7 @@ def test_structured_logging_json_output() -> None:
     logger = structlog.get_logger()
 
     # Test logging with context
-    with patch("sys.stdout") as mock_stdout:
+    with patch("sys.stdout"):
         logger.info("test_message", key="value", number=42)
 
         # Verify JSON structure (this is a basic check)

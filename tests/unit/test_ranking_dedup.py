@@ -65,9 +65,9 @@ def test_ranker_applies_domain_boost(settings: Settings) -> None:
     ranker = Ranker(settings)
 
     from butterscout.models.responses import (
-        SearchResult,
         ResultMetadata,
         ResultScores,
+        SearchResult,
     )
 
     results = [
@@ -115,9 +115,9 @@ def test_ranker_blocks_domains(settings: Settings) -> None:
     ranker = Ranker(settings)
 
     from butterscout.models.responses import (
-        SearchResult,
         ResultMetadata,
         ResultScores,
+        SearchResult,
     )
 
     results = [
@@ -217,7 +217,7 @@ def test_domain_matching_edge_cases(settings: Settings) -> None:
     settings.BS_BLOCKED_DOMAINS = "example.com"
     ranker = Ranker(settings)
 
-    from butterscout.models.responses import SearchResult, ResultMetadata, ResultScores
+    from butterscout.models.responses import ResultMetadata, ResultScores, SearchResult
 
     # Test that www., subdomains, and the base domain are all blocked
     results = [
@@ -293,7 +293,7 @@ def test_score_validation_zero(settings: Settings) -> None:
     """Ranker should handle zero scores gracefully"""
     ranker = Ranker(settings)
 
-    from butterscout.models.responses import SearchResult, ResultMetadata, ResultScores
+    from butterscout.models.responses import ResultMetadata, ResultScores, SearchResult
 
     result = SearchResult(
         title="Zero score",
@@ -318,7 +318,7 @@ def test_score_validation_negative(settings: Settings) -> None:
     """Ranker should handle negative scores gracefully"""
     ranker = Ranker(settings)
 
-    from butterscout.models.responses import SearchResult, ResultMetadata, ResultScores
+    from butterscout.models.responses import ResultMetadata, ResultScores, SearchResult
 
     result = SearchResult(
         title="Negative score",
@@ -343,7 +343,7 @@ def test_ranking_stability(settings: Settings) -> None:
     """Ranking should be stable for results with equal scores"""
     ranker = Ranker(settings)
 
-    from butterscout.models.responses import SearchResult, ResultMetadata, ResultScores
+    from butterscout.models.responses import ResultMetadata, ResultScores, SearchResult
 
     # Create results with identical scores
     results = []
@@ -378,7 +378,7 @@ def test_subdomain_matching_allowed(settings: Settings) -> None:
     settings.BS_ALLOWED_DOMAINS = "example.com"
     ranker = Ranker(settings)
 
-    from butterscout.models.responses import SearchResult, ResultMetadata, ResultScores
+    from butterscout.models.responses import ResultMetadata, ResultScores, SearchResult
 
     results = [
         SearchResult(
@@ -411,7 +411,7 @@ def test_subdomain_matching_allowed(settings: Settings) -> None:
         ),
     ]
 
-    ranked = ranker.rank(results, "test-123")
+    ranker.rank(results, "test-123")
 
     # Both should get domain boost
     # Check that both have higher scores (boosted from 0.5 to 0.6)
@@ -426,7 +426,7 @@ def test_combined_boosts(settings: Settings) -> None:
     settings.BS_ALLOWED_DOMAINS = "example.com"
     ranker = Ranker(settings)
 
-    from butterscout.models.responses import SearchResult, ResultMetadata, ResultScores
+    from butterscout.models.responses import ResultMetadata, ResultScores, SearchResult
 
     result = SearchResult(
         title="Boosted domain with extraction",
@@ -452,7 +452,7 @@ def test_extraction_boost(settings: Settings) -> None:
     """Extraction boost should be applied correctly"""
     ranker = Ranker(settings)
 
-    from butterscout.models.responses import SearchResult, ResultMetadata, ResultScores
+    from butterscout.models.responses import ResultMetadata, ResultScores, SearchResult
 
     result = SearchResult(
         title="Extracted content",

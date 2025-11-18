@@ -15,13 +15,13 @@ from butterscout.models.responses import ResponseMetadata, SearchResponse
 from butterscout.services.cache_service import CacheService
 from butterscout.services.deduplicator import URLDeduplicator
 from butterscout.services.extraction_orchestrator import ExtractionOrchestrator
-from butterscout.services.rate_limiter import RateLimiter
 from butterscout.services.ranker import Ranker
+from butterscout.services.rate_limiter import RateLimiter
 from butterscout.services.result_assembler import ResultAssembler
+from butterscout.state import app_state
 from butterscout.utils.content_filter import filter_low_quality_results
 from butterscout.utils.domain_filter import is_domain_allowed
 from butterscout.utils.rate_limit_headers import generate_rate_limit_headers
-from butterscout.state import app_state
 
 logger = structlog.get_logger()
 
