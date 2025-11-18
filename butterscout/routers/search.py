@@ -22,6 +22,7 @@ from butterscout.services.result_assembler import ResultAssembler
 from butterscout.state import app_state
 from butterscout.utils.content_filter import filter_low_quality_results
 from butterscout.utils.domain_filter import is_domain_allowed
+from butterscout.utils.request_helpers import get_client_ip
 from butterscout.utils.rate_limit_headers import generate_rate_limit_headers
 
 logger = structlog.get_logger()
@@ -54,7 +55,7 @@ async def search(
     )
 
     # 1. Rate Limiting (applied before auth to include headers on 401)
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip(request)
     rate_limiter = RateLimiter(app_state.redis_client, app_state.settings)
     is_allowed, retry_after, remaining, limit, reset_ts = await rate_limiter.check_rate_limit(
         client_ip=client_ip,
@@ -99,7 +100,37 @@ async def search(
             headers=rate_limit_headers,
         )
 
-    # 2. Authentication (if required)
+    # 2. Enforce configured max_results ceiling
+    if request_body.max_results > app_state.settings.BS_MAX_RESULTS:
+        if hasattr(request.state, "error_code"):
+            request.state.error_code = "MAX_RESULTS_EXCEEDED"
+        logger.warning(
+            "max_results_exceeded",
+            request_id=request_id,
+            requested=request_body.max_results,
+            allowed=app_state.settings.BS_MAX_RESULTS,
+        )
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": {
+                    "code": "MAX_RESULTS_EXCEEDED",
+                    "message": "Requested max_results exceeds configured limit",
+                    "details": {
+                        "requested": request_body.max_results,
+                        "allowed": app_state.settings.BS_MAX_RESULTS,
+                    },
+                },
+                "metadata": {
+                    "request_id": request_id,
+                    "api_version": "v1",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                },
+            },
+            headers=rate_limit_headers,
+        )
+
+    # 3. Authentication (if required)
     if app_state.settings.BS_API_KEY:
         # Use constant-time comparison to prevent timing attacks
         is_valid = (
@@ -134,7 +165,7 @@ async def search(
                 },
             )
 
-    # 3. Check Cache
+    # 4. Check Cache
     cache_service = CacheService(app_state.redis_client, app_state.settings)
     cached_response = await cache_service.get(request_body, request_id)
 
@@ -169,7 +200,7 @@ async def search(
         if hasattr(request.state, "cache_hit"):
             request.state.cache_hit = False
 
-    # 4. Execute Search via SearXNG
+    # 5. Execute Search via SearXNG
     searxng_start = time.perf_counter()
 
     try:
@@ -209,7 +240,7 @@ async def search(
     if hasattr(request.state, "searxng_time_ms"):
         request.state.searxng_time_ms = searxng_time_ms
 
-    # 5. Apply Domain Filtering
+    # 6. Apply Domain Filtering
     filtered_results = [
         r
         for r in search_results
@@ -220,16 +251,20 @@ async def search(
         )
     ]
 
-    # 6. Deduplicate
+    # 7. Deduplicate
     deduplicated_results = URLDeduplicator.deduplicate(
         filtered_results,
         request_id,
     )
 
-    # 7. Extract Content (if requested)
+    # 8. Extract Content (if requested)
     extraction_time_ms: Optional[int] = 0 if request_body.include_content else None
     if request_body.include_content and deduplicated_results:
         extraction_start = time.perf_counter()
+        effective_extract_timeout_ms = min(
+            request_body.extract_timeout_ms,
+            app_state.settings.BS_REQUEST_TIMEOUT_MS,
+        )
 
         orchestrator = ExtractionOrchestrator(
             app_state.extraction_strategy,
@@ -239,6 +274,7 @@ async def search(
         extracted_contents = await orchestrator.extract_all(
             deduplicated_results,
             request_id,
+            timeout_ms=effective_extract_timeout_ms,
         )
 
         extraction_time_ms = int((time.perf_counter() - extraction_start) * 1000)
@@ -252,7 +288,7 @@ async def search(
             request_id=request_id,
         )
 
-        # 8. Filter Low Quality
+        # 9. Filter Low Quality
         results = filter_low_quality_results(results, request_id)
     else:
         # No extraction - just assemble with snippets
@@ -263,13 +299,13 @@ async def search(
             request_id=request_id,
         )
 
-    # 9. Rank Results
+    # 10. Rank Results
     ranker = Ranker(app_state.settings)
     ranked_results = ranker.rank(results, request_id)
     if hasattr(request.state, "url_count"):
         request.state.url_count = len(ranked_results)
 
-    # 10. Build Response
+    # 11. Build Response
     total_time_ms = int((time.perf_counter() - start_time) * 1000)
     if hasattr(request.state, "extraction_time_ms"):
         request.state.extraction_time_ms = extraction_time_ms or 0
@@ -289,7 +325,7 @@ async def search(
         ),
     )
 
-    # 11. Cache Response
+    # 12. Cache Response
     await cache_service.set(request_body, response, request_id)
 
     logger.info(

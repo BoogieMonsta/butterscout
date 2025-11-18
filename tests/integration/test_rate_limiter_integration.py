@@ -19,6 +19,7 @@ def settings() -> Settings:
         BS_REDIS_URL="valkey://localhost:6379/0",
         BS_SEARXNG_URL="http://localhost:8080",
         BS_CRAWL4AI_URL="http://localhost:11235",
+        BS_API_KEY="test-api-key",
         BS_RATE_LIMIT_PER_HOUR=10,
         BS_API_KEY_RATE_LIMIT_PER_HOUR=100,
         BS_GLOBAL_RATE_LIMIT_PER_HOUR=1000,

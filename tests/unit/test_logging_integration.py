@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import Request
 
-from butterscout.main import get_client_ip, get_normalized_endpoint
+from butterscout.utils.request_helpers import get_client_ip, get_normalized_endpoint
 from butterscout.utils.logging import configure_logging
 
 

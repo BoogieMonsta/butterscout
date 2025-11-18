@@ -1,4 +1,5 @@
 """Sliding window rate limiter using Valkey."""
+import secrets
 import time
 from typing import Any, Optional, Sequence, Tuple, cast
 
@@ -7,6 +8,7 @@ import structlog
 from butterscout.clients.redis_client import ValkeyClient
 from butterscout.config import Settings
 from butterscout.services.metrics import metrics_service
+from butterscout.utils.privacy import hash_api_key, hash_client_ip
 from butterscout.utils.redis_keys import (
     generate_global_rate_limit_key,
     generate_rate_limit_key,
@@ -46,17 +48,23 @@ class RateLimiter:
             - limit: Total limit per window
             - reset_timestamp: Unix timestamp when rate limit resets
         """
-        # Determine which rate limit to use
-        if api_key:
-            # API key rate limit (higher tier)
+        # Determine which rate limit to use (only trust validated API keys)
+        api_key_valid = bool(
+            api_key
+            and self.settings.BS_API_KEY
+            and secrets.compare_digest(api_key, self.settings.BS_API_KEY)
+        )
+
+        if api_key_valid:
             identifier = api_key
             limit_per_hour = self.settings.BS_API_KEY_RATE_LIMIT_PER_HOUR
             key_type = "api_key"
+            identifier_hash = hash_api_key(api_key)
         else:
-            # IP-based rate limit (lower tier)
             identifier = client_ip
             limit_per_hour = self.settings.BS_RATE_LIMIT_PER_HOUR
             key_type = "ip"
+            identifier_hash = hash_client_ip(client_ip)
 
         # Check user-specific limit
         is_allowed, retry_after, remaining, reset_timestamp = await self._check_limit(
@@ -72,7 +80,7 @@ class RateLimiter:
                 "rate_limit_exceeded",
                 request_id=request_id,
                 key_type=key_type,
-                identifier_hash=identifier[:8] + "...",
+                identifier_hash=identifier_hash,
                 limit=limit_per_hour,
             )
             return False, retry_after, 0, limit_per_hour, reset_timestamp

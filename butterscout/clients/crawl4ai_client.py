@@ -44,7 +44,12 @@ class Crawl4AIClient:
         if self.client:
             await self.client.aclose()
 
-    async def extract(self, url: HttpUrl, request_id: str) -> ExtractedContent:
+    async def extract(
+        self,
+        url: HttpUrl,
+        request_id: str,
+        timeout_ms: Optional[int] = None,
+    ) -> ExtractedContent:
         """
         Extract content from URL using Crawl4AI.
 
@@ -63,6 +68,10 @@ class Crawl4AIClient:
             raise RuntimeError("Crawl4AI client not connected")
 
         start_time = time.perf_counter()
+        effective_timeout_ms = timeout_ms or self.settings.BS_EXTRACTION_TIMEOUT_MS
+        # Never exceed configured request timeout budget
+        effective_timeout_ms = min(effective_timeout_ms, self.settings.BS_REQUEST_TIMEOUT_MS)
+        timeout_seconds = effective_timeout_ms / 1000.0
 
         try:
             logger.info(
@@ -87,6 +96,12 @@ class Crawl4AIClient:
                         ".cookie-banner",
                     ],
                 },
+                timeout=httpx.Timeout(
+                    connect=5.0,
+                    read=timeout_seconds,
+                    write=5.0,
+                    pool=5.0,
+                ),
             )
 
             response.raise_for_status()

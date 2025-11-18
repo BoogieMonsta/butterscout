@@ -53,11 +53,11 @@ async def test_extraction_strategy_fallback_used(monkeypatch: pytest.MonkeyPatch
     """Ensure fallback is invoked when Crawl4AI fails."""
 
     class FakeCrawl4AI:
-        async def extract(self, url: HttpUrl, request_id: str) -> ExtractedContent:
+        async def extract(self, url: HttpUrl, request_id: str, timeout_ms: int | None = None) -> ExtractedContent:
             raise RuntimeError("crawl failure")
 
     class FakeTrafilatura:
-        async def extract(self, url: HttpUrl, request_id: str) -> ExtractedContent:
+        async def extract(self, url: HttpUrl, request_id: str, timeout_ms: int | None = None) -> ExtractedContent:
             return ExtractedContent(
                 url=url,
                 content="fallback content",
@@ -91,7 +91,7 @@ async def test_extraction_strategy_no_fallback() -> None:
     """Ensure failure returns a failed result when fallback disabled or missing."""
 
     class FakeCrawl4AI:
-        async def extract(self, url: HttpUrl, request_id: str) -> ExtractedContent:
+        async def extract(self, url: HttpUrl, request_id: str, timeout_ms: int | None = None) -> ExtractedContent:
             raise RuntimeError("crawl failure")
 
     settings = Settings(

@@ -1,7 +1,7 @@
 """Unit tests for the search endpoint."""
 from __future__ import annotations
 
-from typing import Generator
+from typing import Generator, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -77,6 +77,35 @@ def test_search_validation_max_results() -> None:
         "max_results": -1,
     })
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_search_enforces_bs_max_results(mock_app_state: MagicMock) -> None:
+    """Ensure requests over configured max are rejected."""
+    from butterscout.main import app
+
+    mock_app_state.settings.BS_MAX_RESULTS = 5
+
+    with patch("butterscout.routers.search.RateLimiter") as mock_limiter_class:
+        mock_limiter = mock_limiter_class.return_value
+        mock_limiter.check_rate_limit = AsyncMock(
+            return_value=(True, None, 5, 5, 1234567890)
+        )
+
+        with patch("butterscout.routers.search.CacheService") as mock_cache_class:
+            mock_cache = mock_cache_class.return_value
+            mock_cache.get = AsyncMock(return_value=None)
+
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.post(
+                "/api/v1/search",
+                json={"query": "test", "max_results": 10},
+            )
+
+            assert response.status_code == 400
+            body = response.json()
+            assert body["error"]["code"] == "MAX_RESULTS_EXCEEDED"
+            assert body["error"]["details"]["allowed"] == 5
 
 
 @pytest.mark.asyncio
@@ -209,6 +238,54 @@ async def test_search_without_content(mock_app_state: MagicMock) -> None:
 
 
 @pytest.mark.asyncio
+async def test_search_applies_extract_timeout(mock_app_state: MagicMock) -> None:
+    """Ensure per-request extract_timeout_ms flows to orchestrator."""
+    from butterscout.main import app
+
+    mock_app_state.settings.BS_REQUEST_TIMEOUT_MS = 2000
+    mock_app_state.settings.BS_MAX_RESULTS = 10
+
+    # Mock search results
+    mock_app_state.searxng_client.search = AsyncMock(
+        return_value=[
+            NormalizedSearchResult(
+                title="Test Result",
+                url=cast(HttpUrl, "https://example.com"),
+                snippet="Test snippet",
+                score=1.0,
+                source="searxng",
+            )
+        ]
+    )
+
+    with patch("butterscout.routers.search.RateLimiter") as mock_limiter_class:
+        mock_limiter = mock_limiter_class.return_value
+        mock_limiter.check_rate_limit = AsyncMock(
+            return_value=(True, None, 59, 60, 1234567890)
+        )
+
+        with patch("butterscout.routers.search.CacheService") as mock_cache_class:
+            mock_cache = mock_cache_class.return_value
+            mock_cache.get = AsyncMock(return_value=None)
+            mock_cache.set = AsyncMock(return_value=True)
+
+            with patch("butterscout.routers.search.ExtractionOrchestrator") as mock_orch_class:
+                mock_orch = mock_orch_class.return_value
+                mock_orch.extract_all = AsyncMock(return_value=[])
+
+                client = TestClient(app, raise_server_exceptions=False)
+                response = client.post(
+                    "/api/v1/search",
+                    json={"query": "test", "extract_timeout_ms": 5000},
+                )
+
+                assert response.status_code == 200
+                _args, kwargs = mock_orch.extract_all.await_args
+                # Should be capped at BS_REQUEST_TIMEOUT_MS
+                assert kwargs["timeout_ms"] == 2000
+
+
+@pytest.mark.asyncio
 async def test_rate_limit_headers() -> None:
     """Test that rate limit headers are included in response."""
     from butterscout.main import app
@@ -250,6 +327,50 @@ async def test_rate_limit_headers() -> None:
                 assert "X-RateLimit-Reset" in response.headers
                 assert response.headers["X-RateLimit-Limit"] == "60"
                 assert response.headers["X-RateLimit-Remaining"] == "45"
+
+
+@pytest.mark.asyncio
+async def test_rate_limiter_uses_forwarded_ip() -> None:
+    """Ensure client IP is taken from X-Forwarded-For for rate limiting."""
+    from butterscout.main import app
+
+    with patch("butterscout.routers.search.app_state") as mock_state:
+        mock_state.settings = MagicMock()
+        mock_state.settings.BS_API_KEY = None
+        mock_state.settings.allowed_domains_list = []
+        mock_state.settings.blocked_domains_list = []
+        mock_state.settings.BS_MAX_RESULTS = 10
+
+        with patch("butterscout.routers.search.RateLimiter") as mock_limiter_class:
+            mock_limiter = mock_limiter_class.return_value
+            mock_limiter.check_rate_limit = AsyncMock(
+                return_value=(True, None, 59, 60, 1234567890)
+            )
+
+            with patch("butterscout.routers.search.CacheService") as mock_cache_class:
+                cached_response = SearchResponse(
+                    query="test",
+                    results=[],
+                    metadata=ResponseMetadata(
+                        search_time_ms=10,
+                        cache_hit=False,
+                        sources_queried=["searxng"],
+                        rate_limited=False,
+                    ),
+                )
+                mock_cache = mock_cache_class.return_value
+                mock_cache.get = AsyncMock(return_value=cached_response)
+
+                client = TestClient(app, raise_server_exceptions=False)
+                response = client.post(
+                    "/api/v1/search",
+                    json={"query": "test"},
+                    headers={"X-Forwarded-For": "203.0.113.7, 10.0.0.1"},
+                )
+
+                assert response.status_code == 200
+                _args, kwargs = mock_limiter.check_rate_limit.await_args
+                assert kwargs["client_ip"] == "203.0.113.7"
 
 
 @pytest.mark.asyncio

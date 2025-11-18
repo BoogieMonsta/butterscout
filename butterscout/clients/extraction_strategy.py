@@ -28,7 +28,12 @@ class ExtractionStrategy:
         self.trafilatura = trafilatura
         self.fallback_enabled = settings.BS_FALLBACK_ENABLED
 
-    async def extract(self, url: HttpUrl, request_id: str) -> ExtractedContent:
+    async def extract(
+        self,
+        url: HttpUrl,
+        request_id: str,
+        timeout_ms: int | None = None,
+    ) -> ExtractedContent:
         """
         Extract content with fallback strategy.
 
@@ -43,7 +48,7 @@ class ExtractionStrategy:
         """
         # Try Crawl4AI first
         try:
-            result = await self.crawl4ai.extract(url, request_id)
+            result = await self.crawl4ai.extract(url, request_id, timeout_ms=timeout_ms)
             # Record metrics
             metrics_service.record_extraction(
                 extractor="crawl4ai",
@@ -73,7 +78,7 @@ class ExtractionStrategy:
             # Try fallback if enabled
             if self.fallback_enabled and self.trafilatura:
                 try:
-                    result = await self.trafilatura.extract(url, request_id)
+                    result = await self.trafilatura.extract(url, request_id, timeout_ms=timeout_ms)
                     # Record trafilatura metrics
                     metrics_service.record_extraction(
                         extractor="trafilatura",

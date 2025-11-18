@@ -43,7 +43,7 @@ def test_should_skip_startup_without_env_vars() -> None:
 
 def test_get_client_ip_from_x_forwarded_for() -> None:
     """Test extracting client IP from X-Forwarded-For header."""
-    from butterscout.main import get_client_ip
+    from butterscout.utils.request_helpers import get_client_ip
 
     request = MagicMock()
     request.headers.get.side_effect = lambda key: {
@@ -56,7 +56,7 @@ def test_get_client_ip_from_x_forwarded_for() -> None:
 
 def test_get_client_ip_from_x_real_ip() -> None:
     """Test extracting client IP from X-Real-IP header."""
-    from butterscout.main import get_client_ip
+    from butterscout.utils.request_helpers import get_client_ip
 
     request = MagicMock()
     request.headers.get.side_effect = lambda key: {
@@ -69,7 +69,7 @@ def test_get_client_ip_from_x_real_ip() -> None:
 
 def test_get_client_ip_from_client_host() -> None:
     """Test extracting client IP from request.client."""
-    from butterscout.main import get_client_ip
+    from butterscout.utils.request_helpers import get_client_ip
 
     request = MagicMock()
     request.headers.get.return_value = None
@@ -81,7 +81,7 @@ def test_get_client_ip_from_client_host() -> None:
 
 def test_get_client_ip_unknown() -> None:
     """Test that unknown is returned when no IP source is available."""
-    from butterscout.main import get_client_ip
+    from butterscout.utils.request_helpers import get_client_ip
 
     request = MagicMock()
     request.headers.get.return_value = None
@@ -93,7 +93,7 @@ def test_get_client_ip_unknown() -> None:
 
 def test_get_client_ip_x_forwarded_for_strips_whitespace() -> None:
     """Test that X-Forwarded-For IP is stripped of whitespace."""
-    from butterscout.main import get_client_ip
+    from butterscout.utils.request_helpers import get_client_ip
 
     request = MagicMock()
     request.headers.get.side_effect = lambda key: {
@@ -106,7 +106,7 @@ def test_get_client_ip_x_forwarded_for_strips_whitespace() -> None:
 
 def test_get_normalized_endpoint_with_route() -> None:
     """Test getting normalized endpoint from route path."""
-    from butterscout.main import get_normalized_endpoint
+    from butterscout.utils.request_helpers import get_normalized_endpoint
 
     request = MagicMock()
     route = MagicMock()
@@ -119,7 +119,7 @@ def test_get_normalized_endpoint_with_route() -> None:
 
 def test_get_normalized_endpoint_without_route() -> None:
     """Test getting normalized endpoint when route is not available."""
-    from butterscout.main import get_normalized_endpoint
+    from butterscout.utils.request_helpers import get_normalized_endpoint
 
     request = MagicMock()
     request.scope = {}
@@ -131,7 +131,7 @@ def test_get_normalized_endpoint_without_route() -> None:
 
 def test_get_normalized_endpoint_with_non_string_path() -> None:
     """Test getting normalized endpoint when route.path is not a string."""
-    from butterscout.main import get_normalized_endpoint
+    from butterscout.utils.request_helpers import get_normalized_endpoint
 
     request = MagicMock()
     route = MagicMock()

@@ -45,7 +45,12 @@ class TrafilaturaClient:
         if self.http_client:
             await self.http_client.aclose()
 
-    async def extract(self, url: HttpUrl, request_id: str) -> ExtractedContent:
+    async def extract(
+        self,
+        url: HttpUrl,
+        request_id: str,
+        timeout_ms: Optional[int] = None,
+    ) -> ExtractedContent:
         """
         Extract content using Trafilatura (fallback extractor).
 
@@ -63,6 +68,9 @@ class TrafilaturaClient:
             raise RuntimeError("Trafilatura client not connected")
 
         start_time = time.perf_counter()
+        effective_timeout_ms = timeout_ms or int(self.timeout_seconds * 1000)
+        effective_timeout_ms = min(effective_timeout_ms, self.settings.BS_REQUEST_TIMEOUT_MS)
+        timeout_seconds = effective_timeout_ms / 1000.0
 
         try:
             logger.info(
@@ -72,7 +80,7 @@ class TrafilaturaClient:
             )
 
             # Fetch HTML
-            response = await self.http_client.get(str(url))
+            response = await self.http_client.get(str(url), timeout=httpx.Timeout(timeout_seconds))
             response.raise_for_status()
             html = response.text
 
@@ -85,7 +93,7 @@ class TrafilaturaClient:
                         self._extract_sync,
                         html,
                     ),
-                    timeout=self.timeout_seconds,
+                    timeout=timeout_seconds,
                 )
             except asyncio.TimeoutError as e:
                 raise TimeoutError(f"Trafilatura extraction timeout: {url}") from e

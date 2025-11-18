@@ -7,12 +7,13 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import AsyncIterator, Awaitable, Callable, Optional
+from typing import AsyncIterator, Awaitable, Callable, Optional, cast
 
 import structlog
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import HttpUrl
 
 from butterscout.clients.crawl4ai_client import Crawl4AIClient
 from butterscout.clients.extraction_strategy import ExtractionStrategy
@@ -21,12 +22,14 @@ from butterscout.clients.searxng_client import SearXNGClient
 from butterscout.clients.trafilatura_client import TrafilaturaClient
 from butterscout.config import load_settings
 from butterscout.middleware.security_headers import add_security_headers
+from butterscout.models.internal import ExtractedContent, NormalizedSearchResult
 from butterscout.routers import health, search
 from butterscout.routers import metrics as metrics_router
 from butterscout.services.metrics import metrics_service
 from butterscout.state import app_state
 from butterscout.utils.logging import configure_logging
 from butterscout.utils.privacy import hash_api_key, hash_client_ip
+from butterscout.utils.request_helpers import get_client_ip, get_normalized_endpoint
 
 __all__ = ["app", "app_state"]
 
@@ -34,6 +37,132 @@ __all__ = ["app", "app_state"]
 app_state.settings = load_settings()
 configure_logging(app_state.settings.BS_LOG_LEVEL)
 logger = structlog.get_logger()
+
+
+class NoopValkeyClient(ValkeyClient):
+    """Fail-open Valkey client for test/skip-startup mode."""
+
+    async def connect(self) -> None:  # pragma: no cover - trivial
+        self.valkey = None
+
+    async def disconnect(self) -> None:  # pragma: no cover - trivial
+        return
+
+    async def ping(self) -> bool:
+        return True
+
+    async def get(self, key: str) -> Optional[str]:  # noqa: D401
+        return None
+
+    async def set(self, key: str, value: str, ttl_seconds: Optional[int] = None) -> bool:
+        return True
+
+    async def delete(self, key: str) -> int:
+        return 0
+
+    async def eval(self, script: str, num_keys: int, *args: object) -> list[int]:
+        # Allow requests by default; return minimal Lua-compatible response
+        return [1, 0, int(time.time())]
+
+    async def exists(self, key: str) -> bool:
+        return False
+
+    async def incr(self, key: str) -> int:
+        return 1
+
+    async def expire(self, key: str, seconds: int) -> bool:
+        return True
+
+    async def ttl(self, key: str) -> int:
+        return -1
+
+
+class StubSearXNGClient(SearXNGClient):
+    """Stub SearXNG client that avoids network calls in test mode."""
+
+    def __init__(self, settings):
+        super().__init__(settings)
+
+    async def connect(self) -> None:
+        return
+
+    async def disconnect(self) -> None:
+        return
+
+    async def search(self, request, request_id: str) -> list[NormalizedSearchResult]:
+        # Return a deterministic stub result; keep shape valid
+        if request.max_results <= 0:
+            return []
+        return [
+            NormalizedSearchResult(
+                title="Stubbed result",
+                url=cast(HttpUrl, "https://example.com"),
+                snippet="Stubbed response (skip-startup mode)",
+                score=1.0,
+            )
+        ]
+
+    async def health_check(self) -> bool:
+        return True
+
+
+class StubCrawl4AIClient(Crawl4AIClient):
+    """Stub Crawl4AI client for skip-startup mode."""
+
+    def __init__(self, settings):
+        super().__init__(settings)
+
+    async def connect(self) -> None:
+        return
+
+    async def disconnect(self) -> None:
+        return
+
+    async def extract(
+        self,
+        url: HttpUrl,
+        request_id: str,
+        timeout_ms: int | None = None,
+    ) -> ExtractedContent:
+        return ExtractedContent(
+            url=url,
+            content="Stubbed content",
+            word_count=2,
+            extracted_by="crawl4ai",
+            extraction_ok=True,
+            extraction_time_ms=1,
+        )
+
+    async def health_check(self) -> bool:
+        return True
+
+
+class StubTrafilaturaClient(TrafilaturaClient):
+    """Stub Trafilatura client for skip-startup mode."""
+
+    def __init__(self, settings):
+        super().__init__(settings)
+
+    async def connect(self) -> None:
+        return
+
+    async def disconnect(self) -> None:
+        return
+
+    async def extract(
+        self,
+        url: HttpUrl,
+        request_id: str,
+        timeout_ms: int | None = None,
+    ) -> ExtractedContent:
+        return ExtractedContent(
+            url=url,
+            content="Stubbed fallback content",
+            word_count=3,
+            extracted_by="trafilatura",
+            extraction_ok=True,
+            extraction_time_ms=1,
+        )
 
 
 def _should_skip_startup() -> bool:
@@ -58,32 +187,6 @@ async def uptime_updater() -> None:
         raise
 
 
-def get_client_ip(request: Request) -> str:
-    """Extract client IP from request headers or connection."""
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-
-    real_ip = request.headers.get("x-real-ip")
-    if real_ip:
-        return real_ip.strip()
-
-    if request.client and request.client.host:
-        return request.client.host
-
-    return "unknown"
-
-
-def get_normalized_endpoint(request: Request) -> str:
-    """Get normalized endpoint path for metrics to avoid high cardinality."""
-    route = request.scope.get("route")
-    route_path = getattr(route, "path", None)
-    if isinstance(route_path, str):
-        return route_path
-
-    return request.url.path
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan: startup and shutdown."""
@@ -92,11 +195,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if _should_skip_startup():
         logger.info("butterscout_startup_skip", reason="test_mode")
         # Initialize lightweight test clients to satisfy handlers without external dependencies
-        app_state.redis_client = ValkeyClient(app_state.settings)
-        app_state.searxng_client = SearXNGClient(app_state.settings)
-        app_state.crawl4ai_client = Crawl4AIClient(app_state.settings)
+        app_state.redis_client = NoopValkeyClient(app_state.settings)
+        app_state.searxng_client = StubSearXNGClient(app_state.settings)
+        app_state.crawl4ai_client = StubCrawl4AIClient(app_state.settings)
         app_state.trafilatura_client = (
-            TrafilaturaClient(app_state.settings)
+            StubTrafilaturaClient(app_state.settings)
             if app_state.settings.BS_FALLBACK_ENABLED
             else None
         )

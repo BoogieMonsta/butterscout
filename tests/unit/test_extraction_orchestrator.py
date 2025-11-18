@@ -24,7 +24,7 @@ async def test_orchestrator_parallel_extraction(settings: Settings) -> None:
     mock_strategy = AsyncMock()
 
     # Mock extract to return different content for each URL
-    async def mock_extract(url: HttpUrl, req_id: str) -> ExtractedContent:
+    async def mock_extract(url: HttpUrl, req_id: str, timeout_ms: int | None = None) -> ExtractedContent:
         return ExtractedContent(
             url=url,
             content=f"Content for {url}",
@@ -102,7 +102,7 @@ async def test_orchestrator_mixed_success_failure(settings: Settings) -> None:
 
     call_count = 0
 
-    async def mock_extract(url: HttpUrl, req_id: str) -> ExtractedContent:
+    async def mock_extract(url: HttpUrl, req_id: str, timeout_ms: int | None = None) -> ExtractedContent:
         nonlocal call_count
         call_count += 1
 
@@ -163,7 +163,7 @@ async def test_orchestrator_respects_semaphore(settings: Settings) -> None:
     max_concurrent_seen = 0
     lock = asyncio.Lock()
 
-    async def mock_extract(url: HttpUrl, req_id: str) -> ExtractedContent:
+    async def mock_extract(url: HttpUrl, req_id: str, timeout_ms: int | None = None) -> ExtractedContent:
         nonlocal current_concurrent, max_concurrent_seen
 
         async with lock:
@@ -226,7 +226,7 @@ async def test_orchestrator_logs_metrics(settings: Settings, caplog: LogCaptureF
     """Test that orchestrator logs appropriate metrics."""
     mock_strategy = AsyncMock()
 
-    async def mock_extract(url: HttpUrl, req_id: str) -> ExtractedContent:
+    async def mock_extract(url: HttpUrl, req_id: str, timeout_ms: int | None = None) -> ExtractedContent:
         return ExtractedContent(
             url=url,
             content=f"Content for {url}",
@@ -260,3 +260,30 @@ async def test_orchestrator_logs_metrics(settings: Settings, caplog: LogCaptureF
     # Check that logs contain request_id
     # Note: structlog may format differently, so we just verify the call succeeded
     assert len(search_results) == 2
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_passes_timeout(settings: Settings) -> None:
+    """Ensure per-request timeouts propagate to extraction strategy."""
+    mock_strategy = AsyncMock()
+    mock_strategy.extract = AsyncMock(
+        return_value=ExtractedContent(
+            url=_url("https://example.com"),
+            content="content",
+            word_count=10,
+            extracted_by="crawl4ai",
+            extraction_ok=True,
+            extraction_time_ms=50,
+        )
+    )
+
+    orchestrator = ExtractionOrchestrator(mock_strategy, settings)
+    await orchestrator.extract_all(
+        [NormalizedSearchResult(title="t", url=_url("https://example.com"), snippet="", score=1.0)],
+        "req-id",
+        timeout_ms=1234,
+    )
+
+    mock_strategy.extract.assert_awaited_once()
+    _args, kwargs = mock_strategy.extract.await_args
+    assert kwargs["timeout_ms"] == 1234

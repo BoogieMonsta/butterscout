@@ -41,6 +41,7 @@ class ExtractionOrchestrator:
         self,
         search_results: list[NormalizedSearchResult],
         request_id: str,
+        timeout_ms: int | None = None,
     ) -> list[ExtractedContent]:
         """Extract content from all search result URLs in parallel.
 
@@ -62,7 +63,7 @@ class ExtractionOrchestrator:
 
         # Create extraction tasks
         tasks = [
-            self._extract_with_semaphore(result.url, request_id)
+            self._extract_with_semaphore(result.url, request_id, timeout_ms)
             for result in search_results
         ]
 
@@ -116,6 +117,7 @@ class ExtractionOrchestrator:
         self,
         url: HttpUrl,
         request_id: str,
+        timeout_ms: int | None,
     ) -> ExtractedContent:
         """Extract single URL with semaphore for concurrency control.
 
@@ -128,7 +130,11 @@ class ExtractionOrchestrator:
         """
         async with self.semaphore:
             try:
-                return await self.extraction_strategy.extract(url, request_id)
+                return await self.extraction_strategy.extract(
+                    url,
+                    request_id,
+                    timeout_ms=timeout_ms,
+                )
             except Exception as e:
                 logger.error(
                     "extraction_orchestrator_error",
