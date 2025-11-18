@@ -18,7 +18,7 @@ COPY pyproject.toml uv.lock ./
 FROM base AS development
 
 # Install all dependencies including dev extras
-RUN uv sync --all-extras
+RUN uv sync --all-extras --no-install-project
 
 # Development runs as root for easier volume mounting
 EXPOSE 8000
@@ -29,7 +29,7 @@ CMD ["uv", "run", "uvicorn", "butterscout.main:app", "--host", "0.0.0.0", "--por
 FROM base AS production
 
 # Install only production dependencies
-RUN uv sync --no-dev
+RUN uv sync --no-dev --no-install-project
 
 # Copy application code
 COPY butterscout/ ./butterscout/
