@@ -1,4 +1,5 @@
 """Unit tests for Redis key generation utilities."""
+
 from __future__ import annotations
 
 from butterscout.models.requests import SearchOptions, SearchRequest

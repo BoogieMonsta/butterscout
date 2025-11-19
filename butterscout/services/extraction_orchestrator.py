@@ -1,4 +1,5 @@
 """Extraction orchestrator for parallel content extraction."""
+
 from __future__ import annotations
 
 import asyncio

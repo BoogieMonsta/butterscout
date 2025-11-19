@@ -1,4 +1,5 @@
 """Unit tests for cache service."""
+
 from __future__ import annotations
 
 from typing import cast
@@ -94,5 +95,3 @@ async def test_invalidate_fails_gracefully_when_not_connected(
     # Should return False on error, not raise
     result = await cache_service.invalidate(request)
     assert result is False
-
-

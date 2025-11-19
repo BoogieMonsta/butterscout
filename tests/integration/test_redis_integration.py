@@ -1,4 +1,5 @@
 """Integration tests for Valkey client against real Valkey instance."""
+
 from __future__ import annotations
 
 import asyncio

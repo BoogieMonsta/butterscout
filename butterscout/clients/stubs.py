@@ -1,4 +1,5 @@
 """Test stubs for skipping startup dependencies."""
+
 from __future__ import annotations
 
 import time

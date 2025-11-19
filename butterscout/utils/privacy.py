@@ -1,4 +1,5 @@
 """Privacy utilities for hashing sensitive data in logs."""
+
 from __future__ import annotations
 
 import hashlib

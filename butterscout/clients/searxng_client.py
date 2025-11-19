@@ -1,4 +1,5 @@
 """SearXNG client for search orchestration."""
+
 import asyncio
 import random
 import time
@@ -43,9 +44,7 @@ class SearXNGClient:
         if self.client:
             await self.client.aclose()
 
-    async def search(
-        self, request: SearchRequest, request_id: str
-    ) -> list[NormalizedSearchResult]:
+    async def search(self, request: SearchRequest, request_id: str) -> list[NormalizedSearchResult]:
         """
         Execute search query against SearXNG.
 
@@ -117,9 +116,7 @@ class SearXNGClient:
                         error=str(json_err),
                         response_text=response.text[:500],
                     )
-                    raise ValueError(
-                        f"SearXNG returned invalid JSON: {json_err}"
-                    ) from json_err
+                    raise ValueError(f"SearXNG returned invalid JSON: {json_err}") from json_err
 
                 results = self._normalize_results(
                     data,
@@ -174,10 +171,7 @@ class SearXNGClient:
             return True
         if isinstance(error, httpx.HTTPStatusError):
             # Retry on 5xx and 429 errors
-            return (
-                500 <= error.response.status_code < 600
-                or error.response.status_code == 429
-            )
+            return 500 <= error.response.status_code < 600 or error.response.status_code == 429
         return False
 
     def _normalize_results(

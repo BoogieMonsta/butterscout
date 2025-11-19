@@ -3,6 +3,7 @@
 Run this script to benchmark Valkey/Redis operations.
 Requires a running Valkey/Redis instance at redis://localhost:6379
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -48,9 +49,9 @@ async def benchmark_get_set_operations() -> None:
 
         print("\n📊 Performance Benchmark Results:")
         print(f"  Set operations: 1000 ops in {set_duration:.3f}s")
-        print(f"  Average: {set_duration/1000*1000:.2f}ms per operation")
+        print(f"  Average: {set_duration / 1000 * 1000:.2f}ms per operation")
         print(f"  Get operations: 1000 ops in {get_duration:.3f}s")
-        print(f"  Average: {get_duration/1000*1000:.2f}ms per operation")
+        print(f"  Average: {get_duration / 1000 * 1000:.2f}ms per operation")
     finally:
         await client.disconnect()
 
@@ -67,6 +68,7 @@ async def benchmark_concurrent_operations() -> None:
     await client.connect()
 
     try:
+
         async def concurrent_op(i: int) -> bool:
             """Execute concurrent set/get/delete operations."""
             key = f"bench:concurrent:{i}"
@@ -83,7 +85,7 @@ async def benchmark_concurrent_operations() -> None:
         print("\n🔀 Concurrent Operations (100 concurrent set/get/delete):")
         print(f"  Total duration: {duration:.3f}s")
         print(f"  All operations succeeded: {all(results)}")
-        print(f"  Operations per second: {100/duration:.2f}")
+        print(f"  Operations per second: {100 / duration:.2f}")
     finally:
         await client.disconnect()
 

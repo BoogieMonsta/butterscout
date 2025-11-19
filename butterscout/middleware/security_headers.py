@@ -1,4 +1,5 @@
 """Security headers middleware for adding standard security headers to responses."""
+
 from __future__ import annotations
 
 from typing import Awaitable, Callable

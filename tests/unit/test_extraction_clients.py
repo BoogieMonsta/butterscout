@@ -1,4 +1,5 @@
 """Tests for extraction clients."""
+
 from __future__ import annotations
 
 from typing import cast
@@ -224,8 +225,7 @@ async def test_crawl4ai_invalid_response_format(settings: Settings) -> None:
 @respx.mock
 async def test_crawl4ai_health_check_success(settings: Settings) -> None:
     """Test Crawl4AI health check success."""
-    respx.get(
-        f"{settings.BS_CRAWL4AI_URL}/health").mock(return_value=Response(200))
+    respx.get(f"{settings.BS_CRAWL4AI_URL}/health").mock(return_value=Response(200))
 
     client = Crawl4AIClient(settings)
     await client.connect()
@@ -241,8 +241,7 @@ async def test_crawl4ai_health_check_success(settings: Settings) -> None:
 @respx.mock
 async def test_crawl4ai_health_check_failure(settings: Settings) -> None:
     """Test Crawl4AI health check failure."""
-    respx.get(
-        f"{settings.BS_CRAWL4AI_URL}/health").mock(return_value=Response(503))
+    respx.get(f"{settings.BS_CRAWL4AI_URL}/health").mock(return_value=Response(503))
 
     client = Crawl4AIClient(settings)
     await client.connect()
@@ -305,8 +304,7 @@ async def test_trafilatura_full_extraction(settings: Settings) -> None:
     </body></html>
     """
 
-    respx.get(
-        "https://example.com").mock(return_value=Response(200, text=html_content))
+    respx.get("https://example.com").mock(return_value=Response(200, text=html_content))
 
     client = TrafilaturaClient(settings)
     await client.connect()
@@ -327,8 +325,7 @@ async def test_trafilatura_empty_html(settings: Settings) -> None:
     """Test Trafilatura with empty/whitespace HTML."""
     html_content = "<html><body></body></html>"
 
-    respx.get(
-        "https://example.com").mock(return_value=Response(200, text=html_content))
+    respx.get("https://example.com").mock(return_value=Response(200, text=html_content))
 
     client = TrafilaturaClient(settings)
     await client.connect()
@@ -404,8 +401,7 @@ async def test_extraction_strategy_fallback_to_trafilatura(settings: Settings) -
     </article>
     </body></html>
     """
-    respx.get(
-        "https://example.com").mock(return_value=Response(200, text=html_content))
+    respx.get("https://example.com").mock(return_value=Response(200, text=html_content))
 
     crawl4ai = Crawl4AIClient(settings)
     trafilatura = TrafilaturaClient(settings)
@@ -500,8 +496,7 @@ async def test_extraction_strategy_crawl4ai_empty_content_fallback(settings: Set
     </article>
     </body></html>
     """
-    respx.get(
-        "https://example.com").mock(return_value=Response(200, text=html_content))
+    respx.get("https://example.com").mock(return_value=Response(200, text=html_content))
 
     crawl4ai = Crawl4AIClient(settings)
     trafilatura = TrafilaturaClient(settings)

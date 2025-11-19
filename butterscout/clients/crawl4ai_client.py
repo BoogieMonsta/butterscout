@@ -1,4 +1,5 @@
 """Crawl4AI extraction client."""
+
 from __future__ import annotations
 
 import time

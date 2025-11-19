@@ -7,6 +7,7 @@ from butterscout.models.internal import NormalizedSearchResult
 
 logger = structlog.get_logger()
 
+
 class URLDeduplicator:
     """Deduplicate search results by normalized URL"""
 
@@ -36,16 +37,21 @@ class URLDeduplicator:
 
         # Remove common tracking parameters
         tracking_params = {
-            "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-            "fbclid", "gclid", "msclkid",
-            "ref", "referrer", "source",
+            "utm_source",
+            "utm_medium",
+            "utm_campaign",
+            "utm_term",
+            "utm_content",
+            "fbclid",
+            "gclid",
+            "msclkid",
+            "ref",
+            "referrer",
+            "source",
         }
 
         query_params = parse_qs(parsed.query)
-        filtered_params = {
-            k: v for k, v in query_params.items()
-            if k not in tracking_params
-        }
+        filtered_params = {k: v for k, v in query_params.items() if k not in tracking_params}
 
         # Flatten list values and sort for deterministic output
         # parse_qs returns {'key': ['value']} so we need to flatten
@@ -70,8 +76,7 @@ class URLDeduplicator:
 
     @staticmethod
     def deduplicate(
-        results: List[NormalizedSearchResult],
-        request_id: str
+        results: List[NormalizedSearchResult], request_id: str
     ) -> List[NormalizedSearchResult]:
         """
         Remove duplicate URLs from results

@@ -1,4 +1,5 @@
 """Valkey connection lifecycle management and dependency injection."""
+
 from __future__ import annotations
 
 import logging

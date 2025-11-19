@@ -1,4 +1,5 @@
 """Integration tests for rate limiter with real Valkey/Redis."""
+
 from __future__ import annotations
 
 import asyncio

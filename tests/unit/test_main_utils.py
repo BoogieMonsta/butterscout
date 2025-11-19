@@ -1,4 +1,5 @@
 """Unit tests for main.py utility functions."""
+
 from __future__ import annotations
 
 import os
@@ -59,9 +60,7 @@ def test_get_client_ip_from_x_real_ip() -> None:
     from butterscout.utils.request_helpers import get_client_ip
 
     request = MagicMock()
-    request.headers.get.side_effect = lambda key: {
-        "x-real-ip": "203.0.113.5"
-    }.get(key)
+    request.headers.get.side_effect = lambda key: {"x-real-ip": "203.0.113.5"}.get(key)
 
     ip = get_client_ip(request)
     assert ip == "203.0.113.5"
@@ -152,7 +151,7 @@ async def test_uptime_updater() -> None:
     from butterscout.main import uptime_updater
     from butterscout.services.metrics import metrics_service
 
-    with patch.object(metrics_service, 'update_uptime') as mock_update:
+    with patch.object(metrics_service, "update_uptime") as mock_update:
         # Create task
         task = asyncio.create_task(uptime_updater())
 

@@ -1,4 +1,5 @@
 """Unit tests for redis manager."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
@@ -44,6 +45,7 @@ async def test_get_valkey_client_not_initialized() -> None:
     """Test getting Valkey client before initialization raises error."""
     # Reset global state
     import butterscout.utils.redis_manager as manager
+
     manager._valkey_client = None
 
     with pytest.raises(RuntimeError, match="Valkey client not initialized"):
@@ -96,6 +98,7 @@ async def test_close_valkey_when_initialized(settings: Settings) -> None:
 async def test_close_valkey_when_not_initialized() -> None:
     """Test closing Valkey client when not initialized doesn't error."""
     import butterscout.utils.redis_manager as manager
+
     manager._valkey_client = None
 
     # Should not raise

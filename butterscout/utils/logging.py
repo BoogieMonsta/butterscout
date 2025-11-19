@@ -28,6 +28,7 @@ Output Format:
 - Timestamp in ISO 8601 UTC format
 - Suitable for log aggregation tools (ELK, Splunk, Datadog)
 """
+
 from __future__ import annotations
 
 import logging

@@ -15,17 +15,17 @@ def _url(url_str: str) -> HttpUrl:
 
 def test_url_normalization() -> None:
     """Test URL normalization removes tracking params and normalizes format"""
-    assert URLDeduplicator.normalize_url(
-        "https://WWW.Example.com/page/?utm_source=google&id=123"
-    ) == "https://example.com/page?id=123"
+    assert (
+        URLDeduplicator.normalize_url("https://WWW.Example.com/page/?utm_source=google&id=123")
+        == "https://example.com/page?id=123"
+    )
 
-    assert URLDeduplicator.normalize_url(
-        "https://example.com/page/"
-    ) == "https://example.com/page"
+    assert URLDeduplicator.normalize_url("https://example.com/page/") == "https://example.com/page"
 
-    assert URLDeduplicator.normalize_url(
-        "https://example.com/page?b=2&a=1"
-    ) == "https://example.com/page?a=1&b=2"
+    assert (
+        URLDeduplicator.normalize_url("https://example.com/page?b=2&a=1")
+        == "https://example.com/page?a=1&b=2"
+    )
 
 
 def test_deduplication() -> None:

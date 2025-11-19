@@ -1,4 +1,5 @@
 """FastAPI application entry point with metrics and logging."""
+
 from __future__ import annotations
 
 import asyncio
@@ -75,7 +76,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # Initialize lightweight test clients to satisfy handlers without external dependencies
         from butterscout.services.cache_backend import MemoryBackend
         from butterscout.services.cache_service import CacheService
-        
+
         app_state.redis_client = NoopValkeyClient(app_state.settings)
         app_state.searxng_client = StubSearXNGClient(app_state.settings)
         app_state.crawl4ai_client = StubCrawl4AIClient(app_state.settings)
@@ -92,7 +93,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # Initialize cache backend for test mode
         app_state.cache_backend = MemoryBackend()
         app_state.cache_service = CacheService(app_state.cache_backend, app_state.settings)
-        
+
         health.startup_time = time.time()
         yield
         logger.info("butterscout_shutdown_skip", reason="test_mode")
@@ -110,7 +111,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Note: Redis is still connected even with memory cache, as RateLimiter depends on it
     from butterscout.services.cache_backend import MemoryBackend, RedisBackend
     from butterscout.services.cache_service import CacheService
-    
+
     if app_state.settings.BS_CACHE_TYPE == "memory":
         logger.info("cache_backend_selected", backend="memory")
         app_state.cache_backend = MemoryBackend()
@@ -172,8 +173,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             ("crawl4ai", getattr(app_state, "crawl4ai_client", None)),
         ]
         if getattr(app_state, "trafilatura_client", None):
-            clients_to_disconnect.append(
-                ("trafilatura", app_state.trafilatura_client))
+            clients_to_disconnect.append(("trafilatura", app_state.trafilatura_client))
 
         for client_name, client in clients_to_disconnect:
             if not client:
@@ -303,7 +303,6 @@ async def request_id_middleware(
     return response if response else JSONResponse(status_code=status_code, content={})
 
 
-
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle unexpected exceptions."""
@@ -406,7 +405,7 @@ async def unauthorized_handler(request: Request, exc: UnauthorizedError) -> JSON
     request_id = getattr(request.state, "request_id", "unknown")
     headers = exc.headers.copy()
     headers["WWW-Authenticate"] = 'ApiKey realm="Butterscout API"'
-    
+
     return JSONResponse(
         status_code=401,
         content={
@@ -447,7 +446,6 @@ async def upstream_error_handler(request: Request, exc: UpstreamProviderError) -
         },
         headers=exc.headers,
     )
-
 
 
 # Include routers

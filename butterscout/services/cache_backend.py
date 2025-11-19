@@ -12,10 +12,10 @@ class CacheBackend(Protocol):
 
     async def get(self, key: str) -> str | None:
         """Get a value from the cache.
-        
+
         Args:
             key: Cache key to retrieve
-            
+
         Returns:
             Cached value if found and not expired, None otherwise
         """
@@ -23,7 +23,7 @@ class CacheBackend(Protocol):
 
     async def set(self, key: str, value: str, ttl: int) -> None:
         """Set a value in the cache with a TTL.
-        
+
         Args:
             key: Cache key to set
             value: Value to cache
@@ -33,10 +33,10 @@ class CacheBackend(Protocol):
 
     async def delete(self, key: str) -> int:
         """Delete a value from the cache.
-        
+
         Args:
             key: Cache key to delete
-            
+
         Returns:
             Number of keys deleted (0 or 1)
         """
@@ -44,7 +44,7 @@ class CacheBackend(Protocol):
 
     async def health_check(self) -> bool:
         """Check if the backend is healthy.
-        
+
         Returns:
             True if backend is operational, False otherwise
         """
@@ -56,7 +56,7 @@ class RedisBackend:
 
     def __init__(self, client: ValkeyClient) -> None:
         """Initialize Redis backend.
-        
+
         Args:
             client: Connected ValkeyClient instance
         """
@@ -81,7 +81,7 @@ class RedisBackend:
 
 class MemoryBackend:
     """In-memory cache backend for development/testing.
-    
+
     This backend provides a thread-safe, TTL-aware in-memory cache
     with automatic cleanup of expired entries. Suitable for development
     and testing when Redis is not available.
@@ -95,7 +95,7 @@ class MemoryBackend:
 
     async def _cleanup_expired(self) -> None:
         """Remove expired entries from the cache.
-        
+
         Called periodically during get/set operations to prevent
         unbounded memory growth. Uses a 60-second cleanup interval.
         """
@@ -103,12 +103,9 @@ class MemoryBackend:
         # Only cleanup every 60 seconds to avoid overhead
         if current_time - self._last_cleanup < 60:
             return
-            
+
         self._last_cleanup = current_time
-        expired_keys = [
-            key for key, (_, expiry) in self._store.items()
-            if current_time > expiry
-        ]
+        expired_keys = [key for key, (_, expiry) in self._store.items() if current_time > expiry]
         for key in expired_keys:
             del self._store[key]
 
@@ -117,12 +114,12 @@ class MemoryBackend:
         async with self._lock:
             if key not in self._store:
                 return None
-            
+
             value, expiry = self._store[key]
             if time.time() > expiry:
                 del self._store[key]
                 return None
-                
+
             # Opportunistic cleanup of other expired entries
             await self._cleanup_expired()
             return value
@@ -144,7 +141,7 @@ class MemoryBackend:
 
     async def health_check(self) -> bool:
         """Check in-memory cache health.
-        
+
         Always returns True as in-memory cache has no external dependencies.
         """
         return True

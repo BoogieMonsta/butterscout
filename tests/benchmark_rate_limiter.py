@@ -3,6 +3,7 @@
 Run this script to benchmark rate limiting operations.
 Requires a running Valkey/Redis instance at redis://localhost:6379
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -51,8 +52,8 @@ async def benchmark_rate_limit_checks() -> None:
 
         print("\n📊 Rate Limit Check Performance:")
         print(f"  1000 checks in: {duration:.3f}s")
-        print(f"  Average: {duration/1000*1000:.2f}ms per check")
-        print(f"  Throughput: {1000/duration:.2f} checks/sec")
+        print(f"  Average: {duration / 1000 * 1000:.2f}ms per check")
+        print(f"  Throughput: {1000 / duration:.2f} checks/sec")
 
         # Check if we meet performance requirements (< 10ms per check)
         avg_ms = duration / 1000 * 1000
@@ -104,8 +105,8 @@ async def benchmark_concurrent_rate_limits() -> None:
         print("\n🔀 Concurrent Rate Limit Checks (100 concurrent):")
         print(f"  Total duration: {duration:.3f}s")
         print(f"  All checks allowed: {all(results)}")
-        print(f"  Checks per second: {100/duration:.2f}")
-        print(f"  Average latency: {duration/100*1000:.2f}ms")
+        print(f"  Checks per second: {100 / duration:.2f}")
+        print(f"  Average latency: {duration / 100 * 1000:.2f}ms")
 
     finally:
         await client.disconnect()

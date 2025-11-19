@@ -3,6 +3,7 @@
 These tests require a running Redis/Valkey instance.
 Run with: pytest -m integration tests/integration/test_cache_integration.py
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -52,9 +53,7 @@ async def redis_client(settings: Settings) -> AsyncGenerator[ValkeyClient, None]
 
 
 @pytest_asyncio.fixture
-async def cache_service(
-    redis_client: ValkeyClient, settings: Settings
-) -> CacheService:
+async def cache_service(redis_client: ValkeyClient, settings: Settings) -> CacheService:
     """Create cache service with connected Redis client."""
     backend = RedisBackend(redis_client)
     return CacheService(backend, settings)
@@ -286,23 +285,17 @@ async def test_cache_with_search_options(cache_service: CacheService) -> None:
     response1 = SearchResponse(
         query=base_query,
         results=[],
-        metadata=ResponseMetadata(
-            search_time_ms=100, cache_hit=False, sources_queried=["searxng"]
-        ),
+        metadata=ResponseMetadata(search_time_ms=100, cache_hit=False, sources_queried=["searxng"]),
     )
     response2 = SearchResponse(
         query=base_query,
         results=[],
-        metadata=ResponseMetadata(
-            search_time_ms=200, cache_hit=False, sources_queried=["searxng"]
-        ),
+        metadata=ResponseMetadata(search_time_ms=200, cache_hit=False, sources_queried=["searxng"]),
     )
     response3 = SearchResponse(
         query=base_query,
         results=[],
-        metadata=ResponseMetadata(
-            search_time_ms=300, cache_hit=False, sources_queried=["searxng"]
-        ),
+        metadata=ResponseMetadata(search_time_ms=300, cache_hit=False, sources_queried=["searxng"]),
     )
 
     try:

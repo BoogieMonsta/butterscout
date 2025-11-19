@@ -1,4 +1,5 @@
 """Search service for orchestrating search, extraction, and ranking."""
+
 from __future__ import annotations
 
 import hashlib
@@ -105,7 +106,9 @@ class SearchService:
             # Actually they are critical for 429.
             # I should probably return them or attach them.
             # Let's stick to raising the exception.
-            raise RateLimitExceededError("Rate limit exceeded", retry_after, headers=rate_limit_headers)
+            raise RateLimitExceededError(
+                "Rate limit exceeded", retry_after, headers=rate_limit_headers
+            )
 
         # 2. Enforce configured max_results ceiling
         if request_body.max_results > self.settings.BS_MAX_RESULTS:
@@ -126,9 +129,8 @@ class SearchService:
 
         # 3. Authentication
         if self.settings.BS_API_KEY:
-            is_valid = (
-                api_key is not None
-                and secrets.compare_digest(api_key, self.settings.BS_API_KEY)
+            is_valid = api_key is not None and secrets.compare_digest(
+                api_key, self.settings.BS_API_KEY
             )
             if not is_valid:
                 if request_state and hasattr(request_state, "error_code"):
@@ -165,7 +167,9 @@ class SearchService:
                 if hasattr(request_state, "searxng_time_ms"):
                     request_state.searxng_time_ms = cached_response.metadata.searxng_time_ms or 0
                 if hasattr(request_state, "extraction_time_ms"):
-                    request_state.extraction_time_ms = cached_response.metadata.extraction_time_ms or 0
+                    request_state.extraction_time_ms = (
+                        cached_response.metadata.extraction_time_ms or 0
+                    )
                 if hasattr(request_state, "url_count"):
                     request_state.url_count = len(cached_response.results)
 
@@ -275,9 +279,7 @@ class SearchService:
             metadata=ResponseMetadata(
                 search_time_ms=total_time_ms,
                 searxng_time_ms=searxng_time_ms,
-                extraction_time_ms=extraction_time_ms
-                if request_body.include_content
-                else None,
+                extraction_time_ms=extraction_time_ms if request_body.include_content else None,
                 cache_hit=False,
                 sources_queried=["searxng"],
                 rate_limited=False,

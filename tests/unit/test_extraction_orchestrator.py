@@ -1,4 +1,5 @@
 """Tests for extraction orchestrator."""
+
 from __future__ import annotations
 
 import asyncio
@@ -75,9 +76,7 @@ async def test_orchestrator_parallel_extraction(settings: Settings) -> None:
 async def test_orchestrator_handles_failures(settings: Settings) -> None:
     """Test that orchestrator handles extraction failures gracefully."""
     mock_strategy = AsyncMock()
-    mock_strategy.extract = AsyncMock(
-        side_effect=Exception("Extraction failed")
-    )
+    mock_strategy.extract = AsyncMock(side_effect=Exception("Extraction failed"))
 
     orchestrator = ExtractionOrchestrator(mock_strategy, settings)
 

@@ -1,4 +1,5 @@
 """Performance tests."""
+
 from __future__ import annotations
 
 import asyncio
@@ -17,9 +18,7 @@ from butterscout.services.deduplicator import URLDeduplicator
 @pytest.mark.slow
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_cache_performance(
-    redis_client: ValkeyClient, settings: Settings
-) -> None:
+async def test_cache_performance(redis_client: ValkeyClient, settings: Settings) -> None:
     """Test cache operations are fast enough"""
     cache = CacheService(redis_client, settings)
 
@@ -58,10 +57,7 @@ async def test_cache_performance(
 @pytest.mark.unit
 def test_url_normalization_performance() -> None:
     """Test URL normalization is fast"""
-    urls = [
-        f"https://example{i}.com/page?utm_source=google&id={i}"
-        for i in range(1000)
-    ]
+    urls = [f"https://example{i}.com/page?utm_source=google&id={i}" for i in range(1000)]
 
     start = time.perf_counter()
     for url in urls:
@@ -125,10 +121,7 @@ def test_cache_key_generation_performance() -> None:
     from butterscout.utils.redis_keys import generate_cache_key
 
     # Create many different requests
-    requests = [
-        SearchRequest(query=f"test query {i}", max_results=10)
-        for i in range(1000)
-    ]
+    requests = [SearchRequest(query=f"test query {i}", max_results=10) for i in range(1000)]
 
     start = time.perf_counter()
     keys = [generate_cache_key(req) for req in requests]

@@ -40,6 +40,7 @@ Histogram Buckets:
 - SearXNG duration: [0.1, 0.5, 1.0, 2.0, 3.0, 5.0, 10.0] seconds (covers 2s timeout + retry)
 - Extraction duration: [0.5, 1.0, 2.0, 3.0, 5.0, 10.0] seconds
 """
+
 from __future__ import annotations
 
 import time
@@ -136,9 +137,7 @@ class MetricsService:
             duration_seconds: Request duration in seconds
             source: Request source type ("ip" or "api_key")
         """
-        requests_total.labels(
-            method=method, endpoint=endpoint, status=status, source=source
-        ).inc()
+        requests_total.labels(method=method, endpoint=endpoint, status=status, source=source).inc()
         request_duration_seconds.labels(endpoint=endpoint).observe(duration_seconds)
 
     def record_searxng_request(self, duration_seconds: float) -> None:

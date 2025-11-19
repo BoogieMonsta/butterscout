@@ -1,4 +1,5 @@
 """Integration tests for complete extraction flow."""
+
 from __future__ import annotations
 
 import asyncio
@@ -55,8 +56,7 @@ async def test_complete_extraction_flow(settings: Settings) -> None:
             return ExtractedContent(
                 url=url,
                 content=(
-                    f"High quality content from {url_str} "
-                    "with enough words to pass the filter."
+                    f"High quality content from {url_str} with enough words to pass the filter."
                 ),
                 word_count=50,
                 extracted_by="crawl4ai",
@@ -183,9 +183,7 @@ async def test_large_batch_extraction(settings: Settings) -> None:
 async def test_all_extractions_fail(settings: Settings) -> None:
     """Test flow when all extractions fail."""
     mock_strategy = AsyncMock()
-    mock_strategy.extract = AsyncMock(
-        side_effect=Exception("All extractions failed")
-    )
+    mock_strategy.extract = AsyncMock(side_effect=Exception("All extractions failed"))
 
     search_results = [
         NormalizedSearchResult(

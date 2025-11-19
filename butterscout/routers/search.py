@@ -1,4 +1,5 @@
 """Search endpoint implementation."""
+
 from __future__ import annotations
 
 import time
@@ -32,7 +33,7 @@ async def search(
     Execute web search with content extraction.
     """
     request_id = getattr(request.state, "request_id", "unknown")
-    
+
     # Initialize service (can be moved to app_state for better DI)
     search_service = SearchService(
         settings=app_state.settings,

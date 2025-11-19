@@ -1,4 +1,5 @@
 """Async Valkey client with connection pooling."""
+
 from __future__ import annotations
 
 import logging
@@ -85,9 +86,7 @@ class ValkeyClient:
             )
         return await self.valkey.get(key)  # type: ignore
 
-    async def set(
-        self, key: str, value: str, ttl_seconds: Optional[int] = None
-    ) -> bool:
+    async def set(self, key: str, value: str, ttl_seconds: Optional[int] = None) -> bool:
         """Set key-value with optional TTL.
 
         Args:
@@ -250,9 +249,7 @@ class ValkeyClient:
             )
         return await self.valkey.zcard(key)  # type: ignore
 
-    async def zrange(
-        self, key: str, start: int, end: int, withscores: bool = False
-    ) -> list[Any]:
+    async def zrange(self, key: str, start: int, end: int, withscores: bool = False) -> list[Any]:
         """Get range of members from sorted set.
 
         Args:
@@ -274,9 +271,7 @@ class ValkeyClient:
             )
         return await self.valkey.zrange(key, start, end, withscores=withscores)  # type: ignore
 
-    async def zremrangebyscore(
-        self, key: str, min_score: float, max_score: float
-    ) -> int:
+    async def zremrangebyscore(self, key: str, min_score: float, max_score: float) -> int:
         """Remove members from sorted set by score range.
 
         Args:

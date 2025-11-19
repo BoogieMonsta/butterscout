@@ -1,4 +1,5 @@
 """Unit tests for metrics service."""
+
 from __future__ import annotations
 
 from butterscout.services.metrics import (
@@ -126,12 +127,12 @@ def test_metrics_endpoint() -> None:
 
     # Verify response
     assert response is not None
-    assert response.media_type is not None and response.media_type.startswith(
-        "text/plain")
+    assert response.media_type is not None and response.media_type.startswith("text/plain")
 
     # Verify content contains expected metrics
-    body_bytes: bytes = response.body.tobytes() if isinstance(
-        response.body, memoryview) else response.body
+    body_bytes: bytes = (
+        response.body.tobytes() if isinstance(response.body, memoryview) else response.body
+    )
     content = body_bytes.decode("utf-8")
     assert "butterscout_requests_total" in content
     assert "butterscout_uptime_seconds" in content
@@ -161,13 +162,14 @@ def test_metrics_with_source_label() -> None:
     )
 
     response = get_metrics()
-    body_bytes: bytes = response.body.tobytes() if isinstance(
-        response.body, memoryview) else response.body
+    body_bytes: bytes = (
+        response.body.tobytes() if isinstance(response.body, memoryview) else response.body
+    )
     content = body_bytes.decode("utf-8")
 
     # Verify both source types are in output
-    assert 'source="ip"' in content or "source=\"ip\"" in content
-    assert 'source="api_key"' in content or "source=\"api_key\"" in content
+    assert 'source="ip"' in content or 'source="ip"' in content
+    assert 'source="api_key"' in content or 'source="api_key"' in content
 
 
 def test_histogram_buckets() -> None:

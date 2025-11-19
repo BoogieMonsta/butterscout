@@ -1,4 +1,5 @@
 """Unit tests for services and utilities."""
+
 import pytest
 
 from butterscout.models.requests import SearchRequest

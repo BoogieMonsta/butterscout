@@ -1,4 +1,5 @@
 """Domain filtering utilities for search results."""
+
 from urllib.parse import urlparse
 
 

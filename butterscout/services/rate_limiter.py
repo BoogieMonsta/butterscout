@@ -1,4 +1,5 @@
 """Sliding window rate limiter using Valkey."""
+
 import secrets
 import time
 from typing import Any, Optional, Sequence, Tuple, cast
@@ -132,8 +133,7 @@ class RateLimiter:
         Returns:
             Tuple of (is_allowed, retry_after_seconds, remaining, reset_timestamp)
         """
-        rate_limit_key = rate_limit_key or generate_rate_limit_key(
-            identifier, key_type)
+        rate_limit_key = rate_limit_key or generate_rate_limit_key(identifier, key_type)
         window_seconds = 3600  # 1 hour
         current_time = int(time.time())
         cutoff_time = current_time - window_seconds
@@ -240,5 +240,6 @@ class RateLimiter:
             self.settings.BS_GLOBAL_RATE_LIMIT_PER_HOUR,
             request_id,
             rate_limit_key=generate_global_rate_limit_key(
-                self.settings.BS_GLOBAL_RATE_LIMIT_PER_HOUR),
+                self.settings.BS_GLOBAL_RATE_LIMIT_PER_HOUR
+            ),
         )

@@ -1,4 +1,5 @@
 """Trafilatura fallback extraction client."""
+
 from __future__ import annotations
 
 import asyncio

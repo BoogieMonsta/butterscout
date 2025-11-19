@@ -1,4 +1,5 @@
 """Response caching service using Redis/Valkey."""
+
 from __future__ import annotations
 
 import json
@@ -29,9 +30,7 @@ class CacheService:
         self.backend = backend
         self.settings = settings
 
-    async def get(
-        self, request: SearchRequest, request_id: str
-    ) -> Optional[SearchResponse]:
+    async def get(self, request: SearchRequest, request_id: str) -> Optional[SearchResponse]:
         """Get cached response if available.
 
         Args:
@@ -74,9 +73,7 @@ class CacheService:
             # On cache errors, treat as cache miss - never fail the request
             return None
 
-    async def set(
-        self, request: SearchRequest, response: SearchResponse, request_id: str
-    ) -> bool:
+    async def set(self, request: SearchRequest, response: SearchResponse, request_id: str) -> bool:
         """Store response in cache with TTL.
 
         Args:

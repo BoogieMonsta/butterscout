@@ -1,4 +1,5 @@
 """Result assembler for combining search and extraction results."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, cast

@@ -1,4 +1,5 @@
 """Integration tests for the search endpoint."""
+
 from __future__ import annotations
 
 from typing import Any, Generator
@@ -68,9 +69,7 @@ async def test_cache_miss_fetch_and_store_flow(mock_app_state: MagicMock) -> Non
     cached_request = None
     cached_response = None
 
-    async def mock_cache_set(
-        request: Any, response: SearchResponse, request_id: str
-    ) -> bool:
+    async def mock_cache_set(request: Any, response: SearchResponse, request_id: str) -> bool:
         nonlocal cache_set_called, cached_request, cached_response
         cache_set_called = True
         cached_request = request
@@ -80,9 +79,7 @@ async def test_cache_miss_fetch_and_store_flow(mock_app_state: MagicMock) -> Non
     # Mock rate limiter to allow
     with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
         mock_limiter = mock_limiter_class.return_value
-        mock_limiter.check_rate_limit = AsyncMock(
-            return_value=(True, None, 59, 60, 1234567890)
-        )
+        mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 59, 60, 1234567890))
 
         # Mock cache service (miss on get, track set)
         with patch("butterscout.services.search_service.CacheService") as mock_cache_class:
@@ -117,9 +114,7 @@ async def test_cache_miss_fetch_and_store_flow(mock_app_state: MagicMock) -> Non
                 )
 
                 # Mock deduplicator and ranker to pass through
-                with patch(
-                    "butterscout.services.search_service.URLDeduplicator"
-                ) as mock_dedup:
+                with patch("butterscout.services.search_service.URLDeduplicator") as mock_dedup:
                     mock_dedup.deduplicate = MagicMock(
                         side_effect=lambda results, request_id: results
                     )
@@ -192,9 +187,7 @@ async def test_extraction_failure_partial_results(mock_app_state: MagicMock) -> 
     # Mock rate limiter
     with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
         mock_limiter = mock_limiter_class.return_value
-        mock_limiter.check_rate_limit = AsyncMock(
-            return_value=(True, None, 59, 60, 1234567890)
-        )
+        mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 59, 60, 1234567890))
 
         # Mock cache miss
         with patch("butterscout.services.search_service.CacheService") as mock_cache_class:
@@ -238,9 +231,7 @@ async def test_extraction_failure_partial_results(mock_app_state: MagicMock) -> 
                 )
 
                 # Mock deduplicator and ranker
-                with patch(
-                    "butterscout.services.search_service.URLDeduplicator"
-                ) as mock_dedup:
+                with patch("butterscout.services.search_service.URLDeduplicator") as mock_dedup:
                     mock_dedup.deduplicate = MagicMock(
                         side_effect=lambda results, request_id: results
                     )
@@ -322,9 +313,7 @@ async def test_domain_filtering(mock_app_state: MagicMock) -> None:
     # Mock rate limiter
     with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
         mock_limiter = mock_limiter_class.return_value
-        mock_limiter.check_rate_limit = AsyncMock(
-            return_value=(True, None, 59, 60, 1234567890)
-        )
+        mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 59, 60, 1234567890))
 
         # Mock cache miss
         with patch("butterscout.services.search_service.CacheService") as mock_cache_class:
@@ -334,15 +323,11 @@ async def test_domain_filtering(mock_app_state: MagicMock) -> None:
 
             # Mock deduplicator and ranker
             with patch("butterscout.services.search_service.URLDeduplicator") as mock_dedup:
-                mock_dedup.deduplicate = MagicMock(
-                    side_effect=lambda results, request_id: results
-                )
+                mock_dedup.deduplicate = MagicMock(side_effect=lambda results, request_id: results)
 
                 with patch("butterscout.services.search_service.Ranker") as mock_ranker_class:
                     mock_ranker = mock_ranker_class.return_value
-                    mock_ranker.rank = MagicMock(
-                        side_effect=lambda results, request_id: results
-                    )
+                    mock_ranker.rank = MagicMock(side_effect=lambda results, request_id: results)
 
                     client = TestClient(app, raise_server_exceptions=False)
                     response = client.post(
@@ -381,9 +366,7 @@ async def test_rate_limit_headers_on_auth_failure(mock_app_state: MagicMock) -> 
     # Mock rate limiter to allow (so we get past rate limit check)
     with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
         mock_limiter = mock_limiter_class.return_value
-        mock_limiter.check_rate_limit = AsyncMock(
-            return_value=(True, None, 45, 60, 1234567890)
-        )
+        mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 45, 60, 1234567890))
 
         client = TestClient(app, raise_server_exceptions=False)
 
@@ -425,9 +408,7 @@ async def test_complete_happy_path_flow(mock_app_state: MagicMock) -> None:
 
     with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
         mock_limiter = mock_limiter_class.return_value
-        mock_limiter.check_rate_limit = AsyncMock(
-            return_value=(True, None, 59, 60, 1234567890)
-        )
+        mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 59, 60, 1234567890))
 
         with patch("butterscout.services.search_service.CacheService") as mock_cache_class:
             mock_cache = mock_cache_class.return_value
@@ -451,21 +432,15 @@ async def test_complete_happy_path_flow(mock_app_state: MagicMock) -> None:
                     ]
                 )
 
-                with patch(
-                    "butterscout.services.search_service.URLDeduplicator"
-                ) as mock_dedup:
-                    mock_dedup.deduplicate = MagicMock(
-                        side_effect=lambda r, rid: r
-                    )
+                with patch("butterscout.services.search_service.URLDeduplicator") as mock_dedup:
+                    mock_dedup.deduplicate = MagicMock(side_effect=lambda r, rid: r)
 
                     with patch("butterscout.services.search_service.Ranker") as mock_ranker_class:
                         mock_ranker = mock_ranker_class.return_value
                         mock_ranker.rank = MagicMock(side_effect=lambda r, rid: r)
 
                         client = TestClient(app, raise_server_exceptions=False)
-                        response = client.post(
-                            "/api/v1/search", json={"query": "test"}
-                        )
+                        response = client.post("/api/v1/search", json={"query": "test"})
 
                         # Verify success
                         assert response.status_code == 200

@@ -8,6 +8,7 @@ from butterscout.models.responses import SearchResult
 
 logger = structlog.get_logger()
 
+
 class Ranker:
     """Simple ranking system for search results"""
 
@@ -16,11 +17,7 @@ class Ranker:
         self.allowed_domains = settings.allowed_domains_list
         self.blocked_domains = settings.blocked_domains_list
 
-    def rank(
-        self,
-        results: List[SearchResult],
-        request_id: str
-    ) -> List[SearchResult]:
+    def rank(self, results: List[SearchResult], request_id: str) -> List[SearchResult]:
         """
         Rank and sort search results
 
@@ -88,7 +85,7 @@ class Ranker:
         if score != score:  # NaN check
             logger.warning("nan_search_score", url=result.url)
             score = 0.0
-        elif score == float('inf') or score == float('-inf'):
+        elif score == float("inf") or score == float("-inf"):
             logger.warning("infinite_search_score", url=result.url, score=score)
             score = 1.0 if score > 0 else 0.0
 
@@ -123,9 +120,7 @@ class Ranker:
         return score
 
     def _filter_blocked_domains(
-        self,
-        results: List[SearchResult],
-        request_id: str
+        self, results: List[SearchResult], request_id: str
     ) -> List[SearchResult]:
         """
         Remove results from blocked domains

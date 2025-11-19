@@ -1,4 +1,5 @@
 """Integration tests for logging and metrics middleware."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -24,9 +25,7 @@ def test_get_client_ip_from_x_forwarded_for() -> None:
 def test_get_client_ip_from_x_real_ip() -> None:
     """Test client IP extraction from X-Real-IP header."""
     request = MagicMock(spec=Request)
-    request.headers.get.side_effect = lambda key: {
-        "x-real-ip": "203.0.113.5"
-    }.get(key)
+    request.headers.get.side_effect = lambda key: {"x-real-ip": "203.0.113.5"}.get(key)
 
     ip = get_client_ip(request)
     assert ip == "203.0.113.5"
@@ -80,6 +79,7 @@ def test_structured_logging_json_output() -> None:
     configure_logging("info")
 
     import structlog
+
     logger = structlog.get_logger()
 
     # Test logging with context
@@ -97,6 +97,7 @@ def test_configure_logging_levels(log_level: str) -> None:
     configure_logging(log_level)
 
     import structlog
+
     logger = structlog.get_logger()
 
     # Should not raise errors

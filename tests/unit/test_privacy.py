@@ -1,4 +1,5 @@
 """Unit tests for privacy utilities."""
+
 from __future__ import annotations
 
 from butterscout.utils.privacy import hash_api_key, hash_client_ip, hash_identifier

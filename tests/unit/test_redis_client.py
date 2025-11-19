@@ -1,4 +1,5 @@
 """Unit tests for Valkey client."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -83,6 +84,7 @@ async def test_connect_disconnect_cycle(settings: Settings) -> None:
 
         async def async_from_url(*args: Any, **kwargs: Any) -> Any:
             return mock_pool
+
         mock_from_url.side_effect = async_from_url
 
         # Connect

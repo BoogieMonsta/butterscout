@@ -1,4 +1,5 @@
 """Tests for content quality filter."""
+
 from __future__ import annotations
 
 from typing import cast
@@ -95,8 +96,7 @@ def test_filter_mixed_results() -> None:
             url=_url("https://example1.com/article"),
             snippet="Good snippet",
             content=(
-                "This is good content with many words "
-                "here to pass the filter test successfully."
+                "This is good content with many words here to pass the filter test successfully."
             ),
             metadata=ResultMetadata(
                 domain="example1.com",

@@ -1,4 +1,5 @@
 """Metrics endpoint router."""
+
 from __future__ import annotations
 
 import secrets
@@ -40,9 +41,8 @@ class MetricsAuth:
         """
         if self.settings.BS_API_KEY:
             # Use constant-time comparison to prevent timing attacks
-            is_valid = (
-                x_api_key is not None
-                and secrets.compare_digest(x_api_key, self.settings.BS_API_KEY)
+            is_valid = x_api_key is not None and secrets.compare_digest(
+                x_api_key, self.settings.BS_API_KEY
             )
             if not is_valid:
                 raise HTTPException(status_code=401, detail="Unauthorized")

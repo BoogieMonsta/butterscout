@@ -1,4 +1,5 @@
 """Unit tests for SearXNG client."""
+
 from typing import Any
 
 import httpx
@@ -67,9 +68,7 @@ async def test_searxng_search_with_language(settings: Settings) -> None:
     await client.connect()
 
     try:
-        request = SearchRequest(
-            query="bonjour", options=SearchOptions(language="fr")
-        )
+        request = SearchRequest(query="bonjour", options=SearchOptions(language="fr"))
         await client.search(request, request_id="test-123")
 
         # Verify language parameter was passed
@@ -93,30 +92,22 @@ async def test_searxng_search_with_freshness(settings: Settings) -> None:
 
     try:
         # Test day range
-        request = SearchRequest(
-            query="test", options=SearchOptions(freshness_days=1)
-        )
+        request = SearchRequest(query="test", options=SearchOptions(freshness_days=1))
         await client.search(request, request_id="test-123")
         assert route.calls.last.request.url.params["time_range"] == "day"
 
         # Test week range
-        request = SearchRequest(
-            query="test", options=SearchOptions(freshness_days=7)
-        )
+        request = SearchRequest(query="test", options=SearchOptions(freshness_days=7))
         await client.search(request, request_id="test-124")
         assert route.calls.last.request.url.params["time_range"] == "week"
 
         # Test month range
-        request = SearchRequest(
-            query="test", options=SearchOptions(freshness_days=30)
-        )
+        request = SearchRequest(query="test", options=SearchOptions(freshness_days=30))
         await client.search(request, request_id="test-125")
         assert route.calls.last.request.url.params["time_range"] == "month"
 
         # Test year range
-        request = SearchRequest(
-            query="test", options=SearchOptions(freshness_days=365)
-        )
+        request = SearchRequest(query="test", options=SearchOptions(freshness_days=365))
         await client.search(request, request_id="test-126")
         assert route.calls.last.request.url.params["time_range"] == "year"
     finally:
@@ -453,9 +444,7 @@ async def test_searxng_invalid_result_skipped(settings: Settings) -> None:
 @respx.mock
 async def test_searxng_health_check_success(settings: Settings) -> None:
     """Test successful health check."""
-    respx.get(f"{settings.BS_SEARXNG_URL}/").mock(
-        return_value=httpx.Response(200, text="OK")
-    )
+    respx.get(f"{settings.BS_SEARXNG_URL}/").mock(return_value=httpx.Response(200, text="OK"))
 
     client = SearXNGClient(settings)
     await client.connect()
@@ -626,8 +615,7 @@ async def test_searxng_domain_blacklist(settings: Settings) -> None:
         # Block spam.com and ads.example.net
         request = SearchRequest(
             query="test",
-            options=SearchOptions(
-                exclude_domains=["spam.com", "ads.example.net"]),
+            options=SearchOptions(exclude_domains=["spam.com", "ads.example.net"]),
         )
         results = await client.search(request, request_id="test-123")
 
@@ -676,9 +664,7 @@ async def test_searxng_domain_whitelist_and_blacklist(settings: Settings) -> Non
         # Whitelist example.com but blacklist ads.example.com
         request = SearchRequest(
             query="test",
-            options=SearchOptions(
-                domains=["example.com"], exclude_domains=["ads.example.com"]
-            ),
+            options=SearchOptions(domains=["example.com"], exclude_domains=["ads.example.com"]),
         )
         results = await client.search(request, request_id="test-123")
 
