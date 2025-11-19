@@ -88,13 +88,7 @@ class Crawl4AIClient:
                 json={
                     "url": url,
                     "format": "markdown",
-                    "remove_selectors": [
-                        "nav",
-                        "header",
-                        "footer",
-                        ".advertisement",
-                        ".cookie-banner",
-                    ],
+                    "remove_selectors": self.settings.BS_EXTRACTION_EXCLUDE_SELECTORS,
                 },
                 timeout=httpx.Timeout(
                     connect=5.0,

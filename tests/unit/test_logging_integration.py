@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import Request
 
-from butterscout.utils.request_helpers import get_client_ip, get_normalized_endpoint
 from butterscout.utils.logging import configure_logging
+from butterscout.utils.request_helpers import get_client_ip, get_normalized_endpoint
 
 
 def test_get_client_ip_from_x_forwarded_for() -> None:

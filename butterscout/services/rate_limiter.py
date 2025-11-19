@@ -56,7 +56,7 @@ class RateLimiter:
         )
 
         if api_key_valid:
-            identifier = api_key
+            identifier = cast(str, api_key)
             limit_per_hour = self.settings.BS_API_KEY_RATE_LIMIT_PER_HOUR
             key_type = "api_key"
             identifier_hash = hash_api_key(api_key)

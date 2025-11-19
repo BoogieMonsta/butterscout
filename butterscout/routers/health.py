@@ -86,7 +86,7 @@ async def health_check(response: Response) -> HealthResponse:
     any_down = any(c.status == "down" for c in components.values())
 
     if all_ok:
-        overall_status = "ok"
+        overall_status = "healthy"
         response.status_code = 200
     elif any_down:
         overall_status = "degraded"

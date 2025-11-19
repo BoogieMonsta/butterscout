@@ -25,7 +25,11 @@ async def test_complete_extraction_flow(settings: Settings) -> None:
     # Mock extraction strategy
     mock_strategy = AsyncMock()
 
-    async def mock_extract(url: HttpUrl, req_id: str) -> ExtractedContent:
+    async def mock_extract(
+        url: HttpUrl,
+        req_id: str,
+        timeout_ms: int | None = None,
+    ) -> ExtractedContent:
         # Simulate different outcomes for different URLs
         url_str = str(url)
         if "fail" in url_str:
@@ -126,7 +130,11 @@ async def test_large_batch_extraction(settings: Settings) -> None:
     """Test extraction with large number of URLs."""
     mock_strategy = AsyncMock()
 
-    async def mock_extract(url: HttpUrl, req_id: str) -> ExtractedContent:
+    async def mock_extract(
+        url: HttpUrl,
+        req_id: str,
+        timeout_ms: int | None = None,
+    ) -> ExtractedContent:
         # Add small delay to simulate real work
         await asyncio.sleep(0.01)
 
@@ -224,7 +232,11 @@ async def test_content_optional_flag(settings: Settings) -> None:
     """Test that include_content flag works correctly."""
     mock_strategy = AsyncMock()
 
-    async def mock_extract(url: HttpUrl, req_id: str) -> ExtractedContent:
+    async def mock_extract(
+        url: HttpUrl,
+        req_id: str,
+        timeout_ms: int | None = None,
+    ) -> ExtractedContent:
         return ExtractedContent(
             url=url,
             content="This is the full content of the article.",
@@ -278,7 +290,11 @@ async def test_partial_failure_graceful_degradation(settings: Settings) -> None:
 
     call_count = 0
 
-    async def mock_extract(url: HttpUrl, req_id: str) -> ExtractedContent:
+    async def mock_extract(
+        url: HttpUrl,
+        req_id: str,
+        timeout_ms: int | None = None,
+    ) -> ExtractedContent:
         nonlocal call_count
         call_count += 1
 

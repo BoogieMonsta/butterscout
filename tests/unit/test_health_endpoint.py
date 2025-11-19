@@ -30,7 +30,7 @@ async def test_health_endpoint_structure_mocked() -> None:
         result = await health_check(response)
 
         # Verify structure
-        assert result.status == "ok"
+        assert result.status == "healthy"
         assert "valkey" in result.components
         assert "searxng" in result.components
         assert "crawl4ai" in result.components

@@ -47,6 +47,15 @@ class Settings(BaseSettings):
     BS_ALLOWED_DOMAINS: str = ""  # comma-separated
     BS_BLOCKED_DOMAINS: str = ""  # comma-separated
 
+    # Extraction configuration
+    BS_EXTRACTION_EXCLUDE_SELECTORS: list[str] = [
+        "nav",
+        "header",
+        "footer",
+        ".advertisement",
+        ".cookie-banner",
+    ]
+
     # CORS configuration
     BS_CORS_ORIGINS: str = "*"  # comma-separated origins or "*" for all
 

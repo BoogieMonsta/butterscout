@@ -25,6 +25,7 @@ def mock_app_state() -> Generator[MagicMock, None, None]:
         mock_state.settings.BS_RATE_LIMIT_PER_HOUR = 60
         mock_state.settings.BS_API_KEY_RATE_LIMIT_PER_HOUR = 600
         mock_state.settings.BS_GLOBAL_RATE_LIMIT_PER_HOUR = 10000
+        mock_state.settings.BS_MAX_RESULTS = 100
         mock_state.settings.allowed_domains_list = []
         mock_state.settings.blocked_domains_list = []
 
@@ -86,13 +87,13 @@ async def test_search_enforces_bs_max_results(mock_app_state: MagicMock) -> None
 
     mock_app_state.settings.BS_MAX_RESULTS = 5
 
-    with patch("butterscout.routers.search.RateLimiter") as mock_limiter_class:
+    with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
         mock_limiter = mock_limiter_class.return_value
         mock_limiter.check_rate_limit = AsyncMock(
             return_value=(True, None, 5, 5, 1234567890)
         )
 
-        with patch("butterscout.routers.search.CacheService") as mock_cache_class:
+        with patch("butterscout.services.search_service.CacheService") as mock_cache_class:
             mock_cache = mock_cache_class.return_value
             mock_cache.get = AsyncMock(return_value=None)
 
@@ -117,7 +118,7 @@ async def test_search_authentication_required(mock_app_state: MagicMock) -> None
     mock_app_state.settings.BS_API_KEY = "test-api-key-12345"
 
     # Mock rate limiter to allow (since rate limiting happens before auth now)
-    with patch("butterscout.routers.search.RateLimiter") as mock_limiter_class:
+    with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
         mock_limiter = mock_limiter_class.return_value
         mock_limiter.check_rate_limit = AsyncMock(
             return_value=(True, None, 59, 60, 1234567890)
@@ -165,14 +166,14 @@ async def test_search_cache_hit(mock_app_state: MagicMock) -> None:
     )
 
     # Mock rate limiter to allow request
-    with patch("butterscout.routers.search.RateLimiter") as mock_limiter_class:
+    with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
         mock_limiter = mock_limiter_class.return_value
         mock_limiter.check_rate_limit = AsyncMock(
             return_value=(True, None, 59, 60, 1234567890)
         )
 
         # Mock cache service to return cached response
-        with patch("butterscout.routers.search.CacheService") as mock_cache_class:
+        with patch("butterscout.services.search_service.CacheService") as mock_cache_class:
             mock_cache = mock_cache_class.return_value
             mock_cache.get = AsyncMock(return_value=cached_response)
 
@@ -208,14 +209,14 @@ async def test_search_without_content(mock_app_state: MagicMock) -> None:
     mock_app_state.searxng_client.search = AsyncMock(return_value=search_results)
 
     # Mock rate limiter
-    with patch("butterscout.routers.search.RateLimiter") as mock_limiter_class:
+    with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
         mock_limiter = mock_limiter_class.return_value
         mock_limiter.check_rate_limit = AsyncMock(
             return_value=(True, None, 59, 60, 1234567890)
         )
 
         # Mock cache service (miss)
-        with patch("butterscout.routers.search.CacheService") as mock_cache_class:
+        with patch("butterscout.services.search_service.CacheService") as mock_cache_class:
             mock_cache = mock_cache_class.return_value
             mock_cache.get = AsyncMock(return_value=None)
             mock_cache.set = AsyncMock(return_value=True)
@@ -258,18 +259,18 @@ async def test_search_applies_extract_timeout(mock_app_state: MagicMock) -> None
         ]
     )
 
-    with patch("butterscout.routers.search.RateLimiter") as mock_limiter_class:
+    with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
         mock_limiter = mock_limiter_class.return_value
         mock_limiter.check_rate_limit = AsyncMock(
             return_value=(True, None, 59, 60, 1234567890)
         )
 
-        with patch("butterscout.routers.search.CacheService") as mock_cache_class:
+        with patch("butterscout.services.search_service.CacheService") as mock_cache_class:
             mock_cache = mock_cache_class.return_value
             mock_cache.get = AsyncMock(return_value=None)
             mock_cache.set = AsyncMock(return_value=True)
 
-            with patch("butterscout.routers.search.ExtractionOrchestrator") as mock_orch_class:
+            with patch("butterscout.services.search_service.ExtractionOrchestrator") as mock_orch_class:
                 mock_orch = mock_orch_class.return_value
                 mock_orch.extract_all = AsyncMock(return_value=[])
 
@@ -295,16 +296,17 @@ async def test_rate_limit_headers() -> None:
         mock_state.settings.BS_API_KEY = None
         mock_state.settings.allowed_domains_list = []
         mock_state.settings.blocked_domains_list = []
+        mock_state.settings.BS_MAX_RESULTS = 100
 
         # Mock rate limiter
-        with patch("butterscout.routers.search.RateLimiter") as mock_limiter_class:
+        with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
             mock_limiter = mock_limiter_class.return_value
             mock_limiter.check_rate_limit = AsyncMock(
                 return_value=(True, None, 45, 60, 1234567890)
             )
 
             # Mock cache service (hit to return quickly)
-            with patch("butterscout.routers.search.CacheService") as mock_cache_class:
+            with patch("butterscout.services.search_service.CacheService") as mock_cache_class:
                 mock_cache = mock_cache_class.return_value
                 cached_response = SearchResponse(
                     query="test",
@@ -341,13 +343,13 @@ async def test_rate_limiter_uses_forwarded_ip() -> None:
         mock_state.settings.blocked_domains_list = []
         mock_state.settings.BS_MAX_RESULTS = 10
 
-        with patch("butterscout.routers.search.RateLimiter") as mock_limiter_class:
+        with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
             mock_limiter = mock_limiter_class.return_value
             mock_limiter.check_rate_limit = AsyncMock(
                 return_value=(True, None, 59, 60, 1234567890)
             )
 
-            with patch("butterscout.routers.search.CacheService") as mock_cache_class:
+            with patch("butterscout.services.search_service.CacheService") as mock_cache_class:
                 cached_response = SearchResponse(
                     query="test",
                     results=[],
@@ -381,9 +383,10 @@ async def test_rate_limit_exceeded() -> None:
     with patch("butterscout.routers.search.app_state") as mock_state:
         mock_state.settings = MagicMock()
         mock_state.settings.BS_API_KEY = None
+        mock_state.settings.BS_MAX_RESULTS = 100
 
         # Mock rate limiter to deny request
-        with patch("butterscout.routers.search.RateLimiter") as mock_limiter_class:
+        with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
             mock_limiter = mock_limiter_class.return_value
             mock_limiter.check_rate_limit = AsyncMock(
                 return_value=(False, 3600, 0, 60, 1234567890)
@@ -407,6 +410,7 @@ async def test_searxng_failure() -> None:
     with patch("butterscout.routers.search.app_state") as mock_state:
         mock_state.settings = MagicMock()
         mock_state.settings.BS_API_KEY = None
+        mock_state.settings.BS_MAX_RESULTS = 100
         mock_state.searxng_client = MagicMock()
 
         # Mock SearXNG to fail
@@ -415,14 +419,14 @@ async def test_searxng_failure() -> None:
         )
 
         # Mock rate limiter to allow
-        with patch("butterscout.routers.search.RateLimiter") as mock_limiter_class:
+        with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
             mock_limiter = mock_limiter_class.return_value
             mock_limiter.check_rate_limit = AsyncMock(
                 return_value=(True, None, 59, 60, 1234567890)
             )
 
             # Mock cache miss
-            with patch("butterscout.routers.search.CacheService") as mock_cache_class:
+            with patch("butterscout.services.search_service.CacheService") as mock_cache_class:
                 mock_cache = mock_cache_class.return_value
                 mock_cache.get = AsyncMock(return_value=None)
 

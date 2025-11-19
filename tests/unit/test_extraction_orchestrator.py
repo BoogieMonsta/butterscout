@@ -24,7 +24,11 @@ async def test_orchestrator_parallel_extraction(settings: Settings) -> None:
     mock_strategy = AsyncMock()
 
     # Mock extract to return different content for each URL
-    async def mock_extract(url: HttpUrl, req_id: str, timeout_ms: int | None = None) -> ExtractedContent:
+    async def mock_extract(
+        url: HttpUrl,
+        req_id: str,
+        timeout_ms: int | None = None,
+    ) -> ExtractedContent:
         return ExtractedContent(
             url=url,
             content=f"Content for {url}",
@@ -102,7 +106,11 @@ async def test_orchestrator_mixed_success_failure(settings: Settings) -> None:
 
     call_count = 0
 
-    async def mock_extract(url: HttpUrl, req_id: str, timeout_ms: int | None = None) -> ExtractedContent:
+    async def mock_extract(
+        url: HttpUrl,
+        req_id: str,
+        timeout_ms: int | None = None,
+    ) -> ExtractedContent:
         nonlocal call_count
         call_count += 1
 
@@ -163,7 +171,11 @@ async def test_orchestrator_respects_semaphore(settings: Settings) -> None:
     max_concurrent_seen = 0
     lock = asyncio.Lock()
 
-    async def mock_extract(url: HttpUrl, req_id: str, timeout_ms: int | None = None) -> ExtractedContent:
+    async def mock_extract(
+        url: HttpUrl,
+        req_id: str,
+        timeout_ms: int | None = None,
+    ) -> ExtractedContent:
         nonlocal current_concurrent, max_concurrent_seen
 
         async with lock:
@@ -226,7 +238,11 @@ async def test_orchestrator_logs_metrics(settings: Settings, caplog: LogCaptureF
     """Test that orchestrator logs appropriate metrics."""
     mock_strategy = AsyncMock()
 
-    async def mock_extract(url: HttpUrl, req_id: str, timeout_ms: int | None = None) -> ExtractedContent:
+    async def mock_extract(
+        url: HttpUrl,
+        req_id: str,
+        timeout_ms: int | None = None,
+    ) -> ExtractedContent:
         return ExtractedContent(
             url=url,
             content=f"Content for {url}",

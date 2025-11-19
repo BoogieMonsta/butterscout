@@ -7,22 +7,26 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import AsyncIterator, Awaitable, Callable, Optional, cast
+from typing import AsyncIterator, Awaitable, Callable, Optional
 
 import structlog
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import HttpUrl
 
 from butterscout.clients.crawl4ai_client import Crawl4AIClient
 from butterscout.clients.extraction_strategy import ExtractionStrategy
 from butterscout.clients.redis_client import ValkeyClient
 from butterscout.clients.searxng_client import SearXNGClient
+from butterscout.clients.stubs import (
+    NoopValkeyClient,
+    StubCrawl4AIClient,
+    StubSearXNGClient,
+    StubTrafilaturaClient,
+)
 from butterscout.clients.trafilatura_client import TrafilaturaClient
-from butterscout.config import load_settings
+from butterscout.config import Settings, load_settings
 from butterscout.middleware.security_headers import add_security_headers
-from butterscout.models.internal import ExtractedContent, NormalizedSearchResult
 from butterscout.routers import health, search
 from butterscout.routers import metrics as metrics_router
 from butterscout.services.metrics import metrics_service
@@ -37,132 +41,6 @@ __all__ = ["app", "app_state"]
 app_state.settings = load_settings()
 configure_logging(app_state.settings.BS_LOG_LEVEL)
 logger = structlog.get_logger()
-
-
-class NoopValkeyClient(ValkeyClient):
-    """Fail-open Valkey client for test/skip-startup mode."""
-
-    async def connect(self) -> None:  # pragma: no cover - trivial
-        self.valkey = None
-
-    async def disconnect(self) -> None:  # pragma: no cover - trivial
-        return
-
-    async def ping(self) -> bool:
-        return True
-
-    async def get(self, key: str) -> Optional[str]:  # noqa: D401
-        return None
-
-    async def set(self, key: str, value: str, ttl_seconds: Optional[int] = None) -> bool:
-        return True
-
-    async def delete(self, key: str) -> int:
-        return 0
-
-    async def eval(self, script: str, num_keys: int, *args: object) -> list[int]:
-        # Allow requests by default; return minimal Lua-compatible response
-        return [1, 0, int(time.time())]
-
-    async def exists(self, key: str) -> bool:
-        return False
-
-    async def incr(self, key: str) -> int:
-        return 1
-
-    async def expire(self, key: str, seconds: int) -> bool:
-        return True
-
-    async def ttl(self, key: str) -> int:
-        return -1
-
-
-class StubSearXNGClient(SearXNGClient):
-    """Stub SearXNG client that avoids network calls in test mode."""
-
-    def __init__(self, settings):
-        super().__init__(settings)
-
-    async def connect(self) -> None:
-        return
-
-    async def disconnect(self) -> None:
-        return
-
-    async def search(self, request, request_id: str) -> list[NormalizedSearchResult]:
-        # Return a deterministic stub result; keep shape valid
-        if request.max_results <= 0:
-            return []
-        return [
-            NormalizedSearchResult(
-                title="Stubbed result",
-                url=cast(HttpUrl, "https://example.com"),
-                snippet="Stubbed response (skip-startup mode)",
-                score=1.0,
-            )
-        ]
-
-    async def health_check(self) -> bool:
-        return True
-
-
-class StubCrawl4AIClient(Crawl4AIClient):
-    """Stub Crawl4AI client for skip-startup mode."""
-
-    def __init__(self, settings):
-        super().__init__(settings)
-
-    async def connect(self) -> None:
-        return
-
-    async def disconnect(self) -> None:
-        return
-
-    async def extract(
-        self,
-        url: HttpUrl,
-        request_id: str,
-        timeout_ms: int | None = None,
-    ) -> ExtractedContent:
-        return ExtractedContent(
-            url=url,
-            content="Stubbed content",
-            word_count=2,
-            extracted_by="crawl4ai",
-            extraction_ok=True,
-            extraction_time_ms=1,
-        )
-
-    async def health_check(self) -> bool:
-        return True
-
-
-class StubTrafilaturaClient(TrafilaturaClient):
-    """Stub Trafilatura client for skip-startup mode."""
-
-    def __init__(self, settings):
-        super().__init__(settings)
-
-    async def connect(self) -> None:
-        return
-
-    async def disconnect(self) -> None:
-        return
-
-    async def extract(
-        self,
-        url: HttpUrl,
-        request_id: str,
-        timeout_ms: int | None = None,
-    ) -> ExtractedContent:
-        return ExtractedContent(
-            url=url,
-            content="Stubbed fallback content",
-            word_count=3,
-            extracted_by="trafilatura",
-            extraction_ok=True,
-            extraction_time_ms=1,
-        )
 
 
 def _should_skip_startup() -> bool:
@@ -401,6 +279,7 @@ async def request_id_middleware(
     return response if response else JSONResponse(status_code=status_code, content={})
 
 
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle unexpected exceptions."""
@@ -437,6 +316,114 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         },
         headers=headers,
     )
+
+
+from butterscout.models.exceptions import (
+    MaxResultsExceededError,
+    RateLimitExceededError,
+    UnauthorizedError,
+    UpstreamProviderError,
+)
+
+
+@app.exception_handler(RateLimitExceededError)
+async def rate_limit_handler(request: Request, exc: RateLimitExceededError) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", "unknown")
+    headers = exc.headers.copy()
+    if exc.retry_after:
+        headers["Retry-After"] = str(int(exc.retry_after))
+
+    return JSONResponse(
+        status_code=429,
+        content={
+            "error": {
+                "code": "RATE_LIMITED",
+                "message": exc.message,
+                "details": {
+                    "retry_after_ms": exc.retry_after * 1000 if exc.retry_after else None,
+                },
+            },
+            "metadata": {
+                "request_id": request_id,
+                "api_version": "v1",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        },
+        headers=headers,
+    )
+
+
+@app.exception_handler(MaxResultsExceededError)
+async def max_results_handler(request: Request, exc: MaxResultsExceededError) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", "unknown")
+    return JSONResponse(
+        status_code=400,
+        content={
+            "error": {
+                "code": "MAX_RESULTS_EXCEEDED",
+                "message": exc.message,
+                "details": {
+                    "requested": exc.requested,
+                    "allowed": exc.allowed,
+                },
+            },
+            "metadata": {
+                "request_id": request_id,
+                "api_version": "v1",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        },
+        headers=exc.headers,
+    )
+
+
+@app.exception_handler(UnauthorizedError)
+async def unauthorized_handler(request: Request, exc: UnauthorizedError) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", "unknown")
+    headers = exc.headers.copy()
+    headers["WWW-Authenticate"] = 'ApiKey realm="Butterscout API"'
+    
+    return JSONResponse(
+        status_code=401,
+        content={
+            "error": {
+                "code": "UNAUTHORIZED",
+                "message": exc.message,
+                "details": {},
+            },
+            "metadata": {
+                "request_id": request_id,
+                "api_version": "v1",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        },
+        headers=headers,
+    )
+
+
+@app.exception_handler(UpstreamProviderError)
+async def upstream_error_handler(request: Request, exc: UpstreamProviderError) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", "unknown")
+    return JSONResponse(
+        status_code=502,
+        content={
+            "error": {
+                "code": "UPSTREAM_ERROR",
+                "message": exc.message,
+                "details": {
+                    "component": exc.component,
+                    "timeout": exc.is_timeout,
+                },
+            },
+            "metadata": {
+                "request_id": request_id,
+                "api_version": "v1",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        },
+        headers=exc.headers,
+    )
+
 
 
 # Include routers

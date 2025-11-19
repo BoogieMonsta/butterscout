@@ -1,8 +1,6 @@
 """Search endpoint implementation."""
 from __future__ import annotations
 
-import hashlib
-import secrets
 import time
 from datetime import datetime, timezone
 from typing import Optional
@@ -12,18 +10,10 @@ from fastapi import APIRouter, Header, Request
 from fastapi.responses import JSONResponse
 
 from butterscout.models.requests import SearchRequest
-from butterscout.models.responses import ResponseMetadata, SearchResponse
-from butterscout.services.cache_service import CacheService
-from butterscout.services.deduplicator import URLDeduplicator
-from butterscout.services.extraction_orchestrator import ExtractionOrchestrator
-from butterscout.services.ranker import Ranker
-from butterscout.services.rate_limiter import RateLimiter
-from butterscout.services.result_assembler import ResultAssembler
+from butterscout.models.responses import SearchResponse
+from butterscout.services.search_service import SearchService
 from butterscout.state import app_state
-from butterscout.utils.content_filter import filter_low_quality_results
-from butterscout.utils.domain_filter import is_domain_allowed
 from butterscout.utils.request_helpers import get_client_ip
-from butterscout.utils.rate_limit_headers import generate_rate_limit_headers
 
 logger = structlog.get_logger()
 
@@ -42,9 +32,14 @@ async def search(
     Execute web search with content extraction.
     """
     request_id = getattr(request.state, "request_id", "unknown")
-    start_time = time.perf_counter()
-    if hasattr(request.state, "error_code"):
-        request.state.error_code = None
+    
+    # Initialize service (can be moved to app_state for better DI)
+    search_service = SearchService(
+        settings=app_state.settings,
+        redis_client=app_state.redis_client,
+        searxng_client=app_state.searxng_client,
+        extraction_strategy=app_state.extraction_strategy,
+    )
 
     logger.info(
         "search_request_begin",
@@ -54,290 +49,17 @@ async def search(
         include_content=request_body.include_content,
     )
 
-    # 1. Rate Limiting (applied before auth to include headers on 401)
     client_ip = get_client_ip(request)
-    rate_limiter = RateLimiter(app_state.redis_client, app_state.settings)
-    is_allowed, retry_after, remaining, limit, reset_ts = await rate_limiter.check_rate_limit(
+
+    response, headers = await search_service.execute_search(
+        request_body=request_body,
+        request_id=request_id,
         client_ip=client_ip,
         api_key=x_api_key,
-        request_id=request_id,
-    )
-
-    if hasattr(request.state, "rate_limited"):
-        request.state.rate_limited = not is_allowed
-
-    rate_limit_headers = generate_rate_limit_headers(
-        limit=limit,
-        remaining=remaining,
-        reset_timestamp=reset_ts,
-        retry_after=retry_after if not is_allowed else None,
-    )
-
-    if not is_allowed:
-        if hasattr(request.state, "error_code"):
-            request.state.error_code = "RATE_LIMITED"
-        logger.warning(
-            "rate_limit_exceeded",
-            request_id=request_id,
-            client_ip_hash=hashlib.sha256(client_ip.encode()).hexdigest()[:8],
-        )
-        return JSONResponse(
-            status_code=429,
-            content={
-                "error": {
-                    "code": "RATE_LIMITED",
-                    "message": "Rate limit exceeded",
-                    "details": {
-                        "retry_after_ms": retry_after * 1000 if retry_after else None,
-                    },
-                },
-                "metadata": {
-                    "request_id": request_id,
-                    "api_version": "v1",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                },
-            },
-            headers=rate_limit_headers,
-        )
-
-    # 2. Enforce configured max_results ceiling
-    if request_body.max_results > app_state.settings.BS_MAX_RESULTS:
-        if hasattr(request.state, "error_code"):
-            request.state.error_code = "MAX_RESULTS_EXCEEDED"
-        logger.warning(
-            "max_results_exceeded",
-            request_id=request_id,
-            requested=request_body.max_results,
-            allowed=app_state.settings.BS_MAX_RESULTS,
-        )
-        return JSONResponse(
-            status_code=400,
-            content={
-                "error": {
-                    "code": "MAX_RESULTS_EXCEEDED",
-                    "message": "Requested max_results exceeds configured limit",
-                    "details": {
-                        "requested": request_body.max_results,
-                        "allowed": app_state.settings.BS_MAX_RESULTS,
-                    },
-                },
-                "metadata": {
-                    "request_id": request_id,
-                    "api_version": "v1",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                },
-            },
-            headers=rate_limit_headers,
-        )
-
-    # 3. Authentication (if required)
-    if app_state.settings.BS_API_KEY:
-        # Use constant-time comparison to prevent timing attacks
-        is_valid = (
-            x_api_key is not None
-            and secrets.compare_digest(x_api_key, app_state.settings.BS_API_KEY)
-        )
-        if not is_valid:
-            if hasattr(request.state, "error_code"):
-                request.state.error_code = "UNAUTHORIZED"
-            logger.warning(
-                "authentication_failed",
-                request_id=request_id,
-                has_key=bool(x_api_key),
-            )
-            return JSONResponse(
-                status_code=401,
-                content={
-                    "error": {
-                        "code": "UNAUTHORIZED",
-                        "message": "Missing or invalid API key",
-                        "details": {},
-                    },
-                    "metadata": {
-                        "request_id": request_id,
-                        "api_version": "v1",
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                    },
-                },
-                headers={
-                    **rate_limit_headers,
-                    "WWW-Authenticate": 'ApiKey realm="Butterscout API"',
-                },
-            )
-
-    # 4. Check Cache
-    cache_service = CacheService(app_state.redis_client, app_state.settings)
-    cached_response = await cache_service.get(request_body, request_id)
-
-    if cached_response:
-        if hasattr(request.state, "cache_hit"):
-            request.state.cache_hit = True
-
-        total_time_ms = int((time.perf_counter() - start_time) * 1000)
-
-        logger.info(
-            "search_request_complete_cache_hit",
-            request_id=request_id,
-            total_time_ms=total_time_ms,
-        )
-
-        cached_response.metadata.search_time_ms = total_time_ms
-        cached_response.metadata.cache_hit = True
-        cached_response.metadata.rate_limited = False
-
-        if hasattr(request.state, "searxng_time_ms"):
-            request.state.searxng_time_ms = cached_response.metadata.searxng_time_ms or 0
-        if hasattr(request.state, "extraction_time_ms"):
-            request.state.extraction_time_ms = cached_response.metadata.extraction_time_ms or 0
-        if hasattr(request.state, "url_count"):
-            request.state.url_count = len(cached_response.results)
-
-        return JSONResponse(
-            content=cached_response.model_dump(mode="json"),
-            headers=rate_limit_headers,
-        )
-    else:
-        if hasattr(request.state, "cache_hit"):
-            request.state.cache_hit = False
-
-    # 5. Execute Search via SearXNG
-    searxng_start = time.perf_counter()
-
-    try:
-        search_results = await app_state.searxng_client.search(
-            request_body,
-            request_id,
-        )
-    except Exception as e:
-        logger.error(
-            "searxng_failed",
-            request_id=request_id,
-            error=str(e),
-        )
-        if hasattr(request.state, "error_code"):
-            request.state.error_code = "UPSTREAM_ERROR"
-        return JSONResponse(
-            status_code=502,
-            content={
-                "error": {
-                    "code": "UPSTREAM_ERROR",
-                    "message": "Search provider error",
-                    "details": {
-                        "component": "searxng",
-                        "timeout": isinstance(e, TimeoutError),
-                    },
-                },
-                "metadata": {
-                    "request_id": request_id,
-                    "api_version": "v1",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                },
-            },
-            headers=rate_limit_headers,
-        )
-
-    searxng_time_ms = int((time.perf_counter() - searxng_start) * 1000)
-    if hasattr(request.state, "searxng_time_ms"):
-        request.state.searxng_time_ms = searxng_time_ms
-
-    # 6. Apply Domain Filtering
-    filtered_results = [
-        r
-        for r in search_results
-        if is_domain_allowed(
-            str(r.url),
-            app_state.settings.allowed_domains_list,
-            app_state.settings.blocked_domains_list,
-        )
-    ]
-
-    # 7. Deduplicate
-    deduplicated_results = URLDeduplicator.deduplicate(
-        filtered_results,
-        request_id,
-    )
-
-    # 8. Extract Content (if requested)
-    extraction_time_ms: Optional[int] = 0 if request_body.include_content else None
-    if request_body.include_content and deduplicated_results:
-        extraction_start = time.perf_counter()
-        effective_extract_timeout_ms = min(
-            request_body.extract_timeout_ms,
-            app_state.settings.BS_REQUEST_TIMEOUT_MS,
-        )
-
-        orchestrator = ExtractionOrchestrator(
-            app_state.extraction_strategy,
-            app_state.settings,
-        )
-
-        extracted_contents = await orchestrator.extract_all(
-            deduplicated_results,
-            request_id,
-            timeout_ms=effective_extract_timeout_ms,
-        )
-
-        extraction_time_ms = int((time.perf_counter() - extraction_start) * 1000)
-        if hasattr(request.state, "extraction_time_ms"):
-            request.state.extraction_time_ms = extraction_time_ms
-
-        results = ResultAssembler.assemble(
-            deduplicated_results,
-            extracted_contents,
-            include_content=True,
-            request_id=request_id,
-        )
-
-        # 9. Filter Low Quality
-        results = filter_low_quality_results(results, request_id)
-    else:
-        # No extraction - just assemble with snippets
-        results = ResultAssembler.assemble(
-            deduplicated_results,
-            [],
-            include_content=False,
-            request_id=request_id,
-        )
-
-    # 10. Rank Results
-    ranker = Ranker(app_state.settings)
-    ranked_results = ranker.rank(results, request_id)
-    if hasattr(request.state, "url_count"):
-        request.state.url_count = len(ranked_results)
-
-    # 11. Build Response
-    total_time_ms = int((time.perf_counter() - start_time) * 1000)
-    if hasattr(request.state, "extraction_time_ms"):
-        request.state.extraction_time_ms = extraction_time_ms or 0
-
-    response = SearchResponse(
-        query=request_body.query,
-        results=ranked_results,
-        metadata=ResponseMetadata(
-            search_time_ms=total_time_ms,
-            searxng_time_ms=searxng_time_ms,
-            extraction_time_ms=extraction_time_ms
-            if request_body.include_content
-            else None,
-            cache_hit=False,
-            sources_queried=["searxng"],
-            rate_limited=False,
-        ),
-    )
-
-    # 12. Cache Response
-    await cache_service.set(request_body, response, request_id)
-
-    logger.info(
-        "search_request_complete",
-        request_id=request_id,
-        result_count=len(ranked_results),
-        total_time_ms=total_time_ms,
-        searxng_time_ms=searxng_time_ms,
-        extraction_time_ms=extraction_time_ms,
+        request_state=request.state,
     )
 
     return JSONResponse(
         content=response.model_dump(mode="json"),
-        headers=rate_limit_headers,
+        headers=headers,
     )
