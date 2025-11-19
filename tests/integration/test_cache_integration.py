@@ -23,6 +23,7 @@ from butterscout.models.responses import (
     SearchResponse,
     SearchResult,
 )
+from butterscout.services.cache_backend import RedisBackend
 from butterscout.services.cache_service import CacheService
 
 
@@ -55,7 +56,8 @@ async def cache_service(
     redis_client: ValkeyClient, settings: Settings
 ) -> CacheService:
     """Create cache service with connected Redis client."""
-    return CacheService(redis_client, settings)
+    backend = RedisBackend(redis_client)
+    return CacheService(backend, settings)
 
 
 @pytest.mark.asyncio
@@ -118,7 +120,8 @@ async def test_cache_ttl_behavior(settings: Settings, redis_client: ValkeyClient
     """Test TTL behavior over time."""
     # Use short TTL for this test
     settings.BS_CACHE_TTL_SECONDS = 2
-    cache_service = CacheService(redis_client, settings)
+    backend = RedisBackend(redis_client)
+    cache_service = CacheService(backend, settings)
 
     request = SearchRequest(query="ttl test")
     response = SearchResponse(
@@ -401,7 +404,8 @@ async def test_cache_survives_redis_reconnection(settings: Settings) -> None:
     # First connection
     client1 = ValkeyClient(settings)
     await client1.connect()
-    cache1 = CacheService(client1, settings)
+    backend1 = RedisBackend(client1)
+    cache1 = CacheService(backend1, settings)
 
     request = SearchRequest(query="reconnection test")
     response = SearchResponse(
@@ -424,7 +428,8 @@ async def test_cache_survives_redis_reconnection(settings: Settings) -> None:
         # New connection
         client2 = ValkeyClient(settings)
         await client2.connect()
-        cache2 = CacheService(client2, settings)
+        backend2 = RedisBackend(client2)
+        cache2 = CacheService(backend2, settings)
 
         # Should still be able to retrieve (data persists in Redis)
         cached = await cache2.get(request, "reconnect-2")

@@ -51,23 +51,30 @@ async def health_check(response: Response) -> HealthResponse:
 
     # Check all components in parallel
     valkey_task = asyncio.create_task(_check_valkey(timeout_seconds))
+    cache_task = asyncio.create_task(_check_cache(timeout_seconds))
     searxng_task = asyncio.create_task(_check_searxng(timeout_seconds))
     crawl4ai_task = asyncio.create_task(_check_crawl4ai(timeout_seconds))
 
     results = await asyncio.gather(
         valkey_task,
+        cache_task,
         searxng_task,
         crawl4ai_task,
         return_exceptions=True,
     )
 
-    valkey_status, searxng_status, crawl4ai_status = results
+    valkey_status, cache_status, searxng_status, crawl4ai_status = results
 
     components = {
         "valkey": (
             valkey_status
             if isinstance(valkey_status, ComponentStatus)
             else ComponentStatus(status="down", error=str(valkey_status))
+        ),
+        "cache": (
+            cache_status
+            if isinstance(cache_status, ComponentStatus)
+            else ComponentStatus(status="down", error=str(cache_status))
         ),
         "searxng": (
             searxng_status
@@ -158,6 +165,28 @@ async def _check_crawl4ai(timeout: float) -> ComponentStatus:
     try:
         async with asyncio.timeout(timeout):
             is_healthy = await app_state.crawl4ai_client.health_check()
+
+        response_time_ms = int((time.perf_counter() - start) * 1000)
+
+        if is_healthy:
+            return ComponentStatus(status="ok", response_time_ms=response_time_ms)
+        else:
+            return ComponentStatus(status="down", error="Health check failed")
+
+    except asyncio.TimeoutError:
+        return ComponentStatus(status="down", error="Timeout")
+    except Exception as e:
+        return ComponentStatus(status="down", error=str(e))
+
+
+async def _check_cache(timeout: float) -> ComponentStatus:
+    """Check Cache Backend health."""
+    from butterscout.main import app_state
+
+    start = time.perf_counter()
+    try:
+        async with asyncio.timeout(timeout):
+            is_healthy = await app_state.cache_backend.health_check()
 
         response_time_ms = int((time.perf_counter() - start) * 1000)
 

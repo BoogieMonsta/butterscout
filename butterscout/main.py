@@ -73,6 +73,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if _should_skip_startup():
         logger.info("butterscout_startup_skip", reason="test_mode")
         # Initialize lightweight test clients to satisfy handlers without external dependencies
+        from butterscout.services.cache_backend import MemoryBackend
+        from butterscout.services.cache_service import CacheService
+        
         app_state.redis_client = NoopValkeyClient(app_state.settings)
         app_state.searxng_client = StubSearXNGClient(app_state.settings)
         app_state.crawl4ai_client = StubCrawl4AIClient(app_state.settings)
@@ -86,6 +89,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             trafilatura=app_state.trafilatura_client,
             settings=app_state.settings,
         )
+        # Initialize cache backend for test mode
+        app_state.cache_backend = MemoryBackend()
+        app_state.cache_service = CacheService(app_state.cache_backend, app_state.settings)
+        
         health.startup_time = time.time()
         yield
         logger.info("butterscout_shutdown_skip", reason="test_mode")
@@ -96,16 +103,33 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Initialize clients
     app_state.redis_client = ValkeyClient(app_state.settings)
+    app_state.searxng_client = SearXNGClient(app_state.settings)
+    app_state.crawl4ai_client = Crawl4AIClient(app_state.settings)
+
+    # Initialize cache backend based on configuration
+    # Note: Redis is still connected even with memory cache, as RateLimiter depends on it
+    from butterscout.services.cache_backend import MemoryBackend, RedisBackend
+    from butterscout.services.cache_service import CacheService
+    
+    if app_state.settings.BS_CACHE_TYPE == "memory":
+        logger.info("cache_backend_selected", backend="memory")
+        app_state.cache_backend = MemoryBackend()
+    else:
+        logger.info("cache_backend_selected", backend="redis")
+        app_state.cache_backend = RedisBackend(app_state.redis_client)
+
+    # Connect clients
     await app_state.redis_client.connect()
     logger.info("redis_client_connected")
 
-    app_state.searxng_client = SearXNGClient(app_state.settings)
     await app_state.searxng_client.connect()
     logger.info("searxng_client_connected")
 
-    app_state.crawl4ai_client = Crawl4AIClient(app_state.settings)
     await app_state.crawl4ai_client.connect()
     logger.info("crawl4ai_client_connected")
+
+    # Initialize cache service
+    app_state.cache_service = CacheService(app_state.cache_backend, app_state.settings)
 
     if app_state.settings.BS_FALLBACK_ENABLED:
         app_state.trafilatura_client = TrafilaturaClient(app_state.settings)

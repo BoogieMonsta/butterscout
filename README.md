@@ -1,15 +1,27 @@
-# Butterscout
+# Butterscout 🧈
 
-A self-hosted web search & extraction API for LLM agents.
+**The Open Source Search & Extraction API for LLM Agents.**
 
-- 🔎 **Search** via SearXNG (meta-search)
-- 🧹 **Clean extraction** via Crawl4AI + fallback extractor
-- 📦 **LLM-ready JSON** with stable schema
-- ⚙️ **Easy to run**: Docker Compose (API + SearXNG + Valkey + Crawl4AI)
+Butterscout is a transparent, developer-first alternative to Tavily and Serper. It orchestrates **SearXNG** (for search) and **Crawl4AI** (for extraction) to provide a unified, LLM-ready API for web research.
 
-Butterscout turns a natural-language query into a list of URLs with extracted content, ready for use in tools, agents, and RAG pipelines.
+> **Note**: This is the Open Source Core. A Managed Service with residential proxies and high-volume tiers is coming soon.
 
-## Quickstart with Docker Compose
+## Why Butterscout?
+
+- **Transparent**: No "black box" ranking. See exactly why a page was chosen or skipped.
+- **Configurable**: Tweak CSS selectors, domain filters, and ranking weights.
+- **Privacy-First**: Self-host on your own infrastructure. Keep your data internal.
+- **Cost-Effective**: Run on your own hardware (e.g., Hetzner) and avoid per-request fees.
+
+## Features
+
+- **Unified API**: One endpoint for Search + Scrape + Rerank.
+- **Smart Extraction**: Uses `Crawl4AI` to convert messy HTML into clean Markdown.
+- **Rate Limiting**: Built-in Redis-backed rate limiting.
+- **Caching**: Deduplicates requests to save bandwidth and time.
+- **LLM-Ready**: Returns optimized JSON for context windows.
+
+## Quickstart (Self-Hosted) with Docker Compose
 
 ### Prerequisites
 

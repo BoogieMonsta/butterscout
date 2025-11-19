@@ -6,10 +6,10 @@ from typing import Optional
 
 import structlog
 
-from butterscout.clients.redis_client import ValkeyClient
 from butterscout.config import Settings
 from butterscout.models.requests import SearchRequest
 from butterscout.models.responses import SearchResponse
+from butterscout.services.cache_backend import CacheBackend
 from butterscout.services.metrics import metrics_service
 from butterscout.utils.redis_keys import generate_cache_key
 
@@ -17,17 +17,16 @@ logger = structlog.get_logger()
 
 
 class CacheService:
-    """Response caching service using Redis/Valkey."""
+    """Service for caching search results."""
 
-    def __init__(self, redis_client: ValkeyClient, settings: Settings):
+    def __init__(self, backend: CacheBackend, settings: Settings):
         """Initialize cache service.
 
         Args:
-            redis_client: ValkeyClient instance for cache storage
+            backend: CacheBackend instance for cache storage
             settings: Application settings with cache configuration
         """
-        self.redis = redis_client
-        self.ttl_seconds = settings.BS_CACHE_TTL_SECONDS
+        self.backend = backend
         self.settings = settings
 
     async def get(
@@ -45,7 +44,7 @@ class CacheService:
         cache_key = generate_cache_key(request)
 
         try:
-            cached_json = await self.redis.get(cache_key)
+            cached_json = await self.backend.get(cache_key)
 
             if cached_json:
                 metrics_service.record_cache_hit()
@@ -95,28 +94,20 @@ class CacheService:
             response_json = response.model_dump_json()
 
             # Store with TTL
-            success = await self.redis.set(
+            await self.backend.set(
                 cache_key,
                 response_json,
-                ttl_seconds=self.ttl_seconds,
+                ttl=self.settings.BS_CACHE_TTL_SECONDS,
             )
 
-            if success:
-                logger.info(
-                    "cache_set",
-                    request_id=request_id,
-                    cache_key=cache_key[:16] + "...",
-                    ttl_seconds=self.ttl_seconds,
-                    response_size_bytes=len(response_json),
-                )
-            else:
-                logger.warning(
-                    "cache_set_failed",
-                    request_id=request_id,
-                    cache_key=cache_key[:16] + "...",
-                )
-
-            return success
+            logger.info(
+                "cache_set",
+                request_id=request_id,
+                cache_key=cache_key[:16] + "...",
+                ttl_seconds=self.settings.BS_CACHE_TTL_SECONDS,
+                response_size_bytes=len(response_json),
+            )
+            return True
 
         except Exception as e:
             logger.error(
@@ -138,7 +129,7 @@ class CacheService:
         """
         cache_key = generate_cache_key(request)
         try:
-            deleted = await self.redis.delete(cache_key)
+            deleted = await self.backend.delete(cache_key)
             return deleted > 0
         except Exception as e:
             logger.error("cache_invalidate_error", error=str(e))

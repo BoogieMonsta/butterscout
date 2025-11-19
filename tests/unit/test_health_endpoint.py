@@ -18,6 +18,7 @@ async def test_health_endpoint_structure_mocked() -> None:
 
         # Setup mock clients with successful health checks
         mock_app_state.redis_client.ping = AsyncMock(return_value=True)
+        mock_app_state.cache_backend.health_check = AsyncMock(return_value=True)
         mock_app_state.searxng_client.health_check = AsyncMock(return_value=True)
         mock_app_state.crawl4ai_client.health_check = AsyncMock(return_value=True)
 
@@ -32,6 +33,7 @@ async def test_health_endpoint_structure_mocked() -> None:
         # Verify structure
         assert result.status == "healthy"
         assert "valkey" in result.components
+        assert "cache" in result.components
         assert "searxng" in result.components
         assert "crawl4ai" in result.components
         assert result.version == "0.1.0"
@@ -41,6 +43,7 @@ async def test_health_endpoint_structure_mocked() -> None:
 
         # Verify component status
         assert result.components["valkey"].status == "ok"
+        assert result.components["cache"].status == "ok"
         assert result.components["searxng"].status == "ok"
         assert result.components["crawl4ai"].status == "ok"
 
@@ -56,6 +59,7 @@ async def test_health_endpoint_degraded_state() -> None:
 
         # Setup mock clients - redis is down
         mock_app_state.redis_client.ping = AsyncMock(return_value=False)
+        mock_app_state.cache_backend.health_check = AsyncMock(return_value=True)
         mock_app_state.searxng_client.health_check = AsyncMock(return_value=True)
         mock_app_state.crawl4ai_client.health_check = AsyncMock(return_value=True)
 
@@ -70,6 +74,7 @@ async def test_health_endpoint_degraded_state() -> None:
         assert result.status == "degraded"
         assert response.status_code == 503
         assert result.components["valkey"].status == "down"
+        assert result.components["cache"].status == "ok"
         assert result.components["searxng"].status == "ok"
         assert result.components["crawl4ai"].status == "ok"
 
@@ -91,6 +96,7 @@ async def test_health_endpoint_timeout_handling() -> None:
             return True
 
         mock_app_state.redis_client.ping = timeout_func
+        mock_app_state.cache_backend.health_check = AsyncMock(return_value=True)
         mock_app_state.searxng_client.health_check = AsyncMock(return_value=True)
         mock_app_state.crawl4ai_client.health_check = AsyncMock(return_value=True)
 

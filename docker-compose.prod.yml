@@ -1,34 +1,72 @@
-# Production Docker Compose configuration
-# Use this file for production deployments without development overrides
-# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-
 services:
-  butterscout-api:
+  api:
     build:
       context: .
-      dockerfile: Dockerfile
-      target: production
-    # Don't expose internal service ports in production
+      dockerfile: Dockerfile.production
+    image: butterscout/api:latest
+    container_name: butterscout-api
+    restart: always
     ports:
       - "8000:8000"
     environment:
-      # Production-specific settings
-      BS_LOG_LEVEL: ${BS_LOG_LEVEL:-info}
-      BS_ENABLE_METRICS: ${BS_ENABLE_METRICS:-true}
-    # No volume mounts in production - use image code
-    restart: always
-
-  searxng:
-    # Don't expose SearXNG port in production (internal only)
-    ports: []
-    restart: always
-
-  crawl4ai:
-    # Don't expose Crawl4AI port in production (internal only)
-    ports: []
-    restart: always
+      - BS_REDIS_URL=redis://redis:6379/0
+      - BS_SEARXNG_URL=http://searxng:8080
+      - BS_CRAWL4AI_URL=http://crawl4ai:11235
+      - BS_LOG_LEVEL=INFO
+      # Generate a secure key in production!
+      # - BS_API_KEY=${BS_API_KEY} 
+    depends_on:
+      - redis
+      - searxng
+      - crawl4ai
+    networks:
+      - butterscout-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
 
   redis:
-    # Don't expose Redis port in production (internal only)
-    ports: []
+    image: valkey/valkey:8-alpine
+    container_name: butterscout-redis
     restart: always
+    command: valkey-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    networks:
+      - butterscout-network
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: butterscout-searxng
+    restart: always
+    environment:
+      - SEARXNG_BASE_URL=http://searxng:8080/
+    volumes:
+      - ./searxng:/etc/searxng
+    networks:
+      - butterscout-network
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+
+  crawl4ai:
+    image: unclecode/crawl4ai:latest
+    container_name: butterscout-crawl4ai
+    restart: always
+    environment:
+      - CRAWL4AI_API_TOKEN=${CRAWL4AI_API_TOKEN:-}
+    shm_size: "2gb"  # Important for browser automation
+    networks:
+      - butterscout-network
+
+networks:
+  butterscout-network:
+    driver: bridge
+
+volumes:
+  redis_data:

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -10,9 +10,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # Required service URLs
-    BS_SEARXNG_URL: str
-    BS_CRAWL4AI_URL: str
-    BS_REDIS_URL: str
+    BS_SEARXNG_URL: str = "http://localhost:8080"
+    BS_CRAWL4AI_URL: str = "http://localhost:11235"
+    BS_CACHE_TYPE: Literal["redis", "memory"] = "redis"
+    BS_REDIS_URL: str = "redis://localhost:6379/0"
 
     # Optional auth
     BS_API_KEY: Optional[str] = None

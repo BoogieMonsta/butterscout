@@ -215,11 +215,17 @@ async def test_search_without_content(mock_app_state: MagicMock) -> None:
             return_value=(True, None, 59, 60, 1234567890)
         )
 
-        # Mock cache service (miss)
+        # Mock cache service
         with patch("butterscout.services.search_service.CacheService") as mock_cache_class:
             mock_cache = mock_cache_class.return_value
+            # Mock the backend inside the service if needed, or just mock the service methods
             mock_cache.get = AsyncMock(return_value=None)
             mock_cache.set = AsyncMock(return_value=True)
+            
+            # Mock backend for direct access tests if any
+            mock_cache.backend = MagicMock()
+            mock_cache.backend.get = AsyncMock(return_value=None)
+            mock_cache.backend.set = AsyncMock(return_value=None)
 
             client = TestClient(app, raise_server_exceptions=False)
             response = client.post("/api/v1/search", json={

@@ -11,6 +11,7 @@ from butterscout.clients.redis_client import ValkeyClient
 from butterscout.config import Settings
 from butterscout.models.requests import SearchRequest
 from butterscout.models.responses import ResponseMetadata, SearchResponse
+from butterscout.services.cache_backend import RedisBackend
 from butterscout.services.cache_service import CacheService
 
 
@@ -39,7 +40,8 @@ async def redis_client(settings: Settings) -> ValkeyClient:
 @pytest_asyncio.fixture
 async def cache_service(redis_client: ValkeyClient, settings: Settings) -> CacheService:
     """Create cache service fixture."""
-    return CacheService(redis_client, settings)
+    backend = RedisBackend(redis_client)
+    return CacheService(backend, settings)
 
 
 @pytest.mark.asyncio
@@ -47,8 +49,7 @@ async def test_cache_service_initialization(
     cache_service: CacheService, settings: Settings
 ) -> None:
     """Test that cache service initializes correctly."""
-    assert cache_service.redis is not None
-    assert cache_service.ttl_seconds == settings.BS_CACHE_TTL_SECONDS
+    assert cache_service.backend is not None
     assert cache_service.settings is settings
 
 
