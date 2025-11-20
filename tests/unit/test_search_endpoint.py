@@ -35,6 +35,11 @@ def mock_app_state() -> Generator[MagicMock, None, None]:
         mock_state.searxng_client = MagicMock()
         mock_state.extraction_strategy = MagicMock()
 
+        # Mock cache service with async methods
+        mock_state.cache_service = MagicMock()
+        mock_state.cache_service.get = AsyncMock(return_value=None)
+        mock_state.cache_service.set = AsyncMock(return_value=True)
+
         yield mock_state
 
 
@@ -101,20 +106,16 @@ async def test_search_enforces_bs_max_results(mock_app_state: MagicMock) -> None
         mock_limiter = mock_limiter_class.return_value
         mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 5, 5, 1234567890))
 
-        with patch("butterscout.services.search_service.CacheService") as mock_cache_class:
-            mock_cache = mock_cache_class.return_value
-            mock_cache.get = AsyncMock(return_value=None)
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.post(
+            "/api/v1/search",
+            json={"query": "test", "max_results": 10},
+        )
 
-            client = TestClient(app, raise_server_exceptions=False)
-            response = client.post(
-                "/api/v1/search",
-                json={"query": "test", "max_results": 10},
-            )
-
-            assert response.status_code == 400
-            body = response.json()
-            assert body["error"]["code"] == "MAX_RESULTS_EXCEEDED"
-            assert body["error"]["details"]["allowed"] == 5
+        assert response.status_code == 400
+        body = response.json()
+        assert body["error"]["code"] == "MAX_RESULTS_EXCEEDED"
+        assert body["error"]["details"]["allowed"] == 5
 
 
 @pytest.mark.asyncio
@@ -169,27 +170,25 @@ async def test_search_cache_hit(mock_app_state: MagicMock) -> None:
         ),
     )
 
+    # Mock cache service to return cached response
+    mock_app_state.cache_service.get = AsyncMock(return_value=cached_response)
+
     # Mock rate limiter to allow request
     with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
         mock_limiter = mock_limiter_class.return_value
         mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 59, 60, 1234567890))
 
-        # Mock cache service to return cached response
-        with patch("butterscout.services.search_service.CacheService") as mock_cache_class:
-            mock_cache = mock_cache_class.return_value
-            mock_cache.get = AsyncMock(return_value=cached_response)
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.post("/api/v1/search", json={"query": "test query"})
 
-            client = TestClient(app, raise_server_exceptions=False)
-            response = client.post("/api/v1/search", json={"query": "test query"})
+        assert response.status_code == 200
+        data = response.json()
 
-            assert response.status_code == 200
-            data = response.json()
+        # Verify cache_hit is True
+        assert data["metadata"]["cache_hit"] is True
 
-            # Verify cache_hit is True
-            assert data["metadata"]["cache_hit"] is True
-
-            # Verify SearXNG was not called
-            mock_app_state.searxng_client.search.assert_not_called()
+        # Verify SearXNG was not called
+        mock_app_state.searxng_client.search.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -215,36 +214,24 @@ async def test_search_without_content(mock_app_state: MagicMock) -> None:
         mock_limiter = mock_limiter_class.return_value
         mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 59, 60, 1234567890))
 
-        # Mock cache service
-        with patch("butterscout.services.search_service.CacheService") as mock_cache_class:
-            mock_cache = mock_cache_class.return_value
-            # Mock the backend inside the service if needed, or just mock the service methods
-            mock_cache.get = AsyncMock(return_value=None)
-            mock_cache.set = AsyncMock(return_value=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.post(
+            "/api/v1/search",
+            json={
+                "query": "test query",
+                "include_content": False,
+            },
+        )
 
-            # Mock backend for direct access tests if any
-            mock_cache.backend = MagicMock()
-            mock_cache.backend.get = AsyncMock(return_value=None)
-            mock_cache.backend.set = AsyncMock(return_value=None)
+        assert response.status_code == 200
+        data = response.json()
 
-            client = TestClient(app, raise_server_exceptions=False)
-            response = client.post(
-                "/api/v1/search",
-                json={
-                    "query": "test query",
-                    "include_content": False,
-                },
-            )
+        # Results should have no content
+        for result in data["results"]:
+            assert result["content"] is None
 
-            assert response.status_code == 200
-            data = response.json()
-
-            # Results should have no content
-            for result in data["results"]:
-                assert result["content"] is None
-
-            # extraction_time_ms should be None
-            assert data["metadata"]["extraction_time_ms"] is None
+        # extraction_time_ms should be None
+        assert data["metadata"]["extraction_time_ms"] is None
 
 
 @pytest.mark.asyncio
@@ -272,27 +259,22 @@ async def test_search_applies_extract_timeout(mock_app_state: MagicMock) -> None
         mock_limiter = mock_limiter_class.return_value
         mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 59, 60, 1234567890))
 
-        with patch("butterscout.services.search_service.CacheService") as mock_cache_class:
-            mock_cache = mock_cache_class.return_value
-            mock_cache.get = AsyncMock(return_value=None)
-            mock_cache.set = AsyncMock(return_value=True)
+        with patch(
+            "butterscout.services.search_service.ExtractionOrchestrator"
+        ) as mock_orch_class:
+            mock_orch = mock_orch_class.return_value
+            mock_orch.extract_all = AsyncMock(return_value=[])
 
-            with patch(
-                "butterscout.services.search_service.ExtractionOrchestrator"
-            ) as mock_orch_class:
-                mock_orch = mock_orch_class.return_value
-                mock_orch.extract_all = AsyncMock(return_value=[])
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.post(
+                "/api/v1/search",
+                json={"query": "test", "extract_timeout_ms": 5000},
+            )
 
-                client = TestClient(app, raise_server_exceptions=False)
-                response = client.post(
-                    "/api/v1/search",
-                    json={"query": "test", "extract_timeout_ms": 5000},
-                )
-
-                assert response.status_code == 200
-                _args, kwargs = mock_orch.extract_all.await_args
-                # Should be capped at BS_REQUEST_TIMEOUT_MS
-                assert kwargs["timeout_ms"] == 2000
+            assert response.status_code == 200
+            _args, kwargs = mock_orch.extract_all.await_args
+            # Should be capped at BS_REQUEST_TIMEOUT_MS
+            assert kwargs["timeout_ms"] == 2000
 
 
 @pytest.mark.asyncio
@@ -307,35 +289,35 @@ async def test_rate_limit_headers() -> None:
         mock_state.settings.blocked_domains_list = []
         mock_state.settings.BS_MAX_RESULTS = 100
 
+        # Mock cache service (hit to return quickly)
+        cached_response = SearchResponse(
+            query="test",
+            results=[],
+            metadata=ResponseMetadata(
+                search_time_ms=10,
+                cache_hit=False,
+                sources_queried=["searxng"],
+                rate_limited=False,
+            ),
+        )
+        mock_state.cache_service = MagicMock()
+        mock_state.cache_service.get = AsyncMock(return_value=cached_response)
+        mock_state.cache_service.set = AsyncMock(return_value=True)
+
         # Mock rate limiter
         with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
             mock_limiter = mock_limiter_class.return_value
             mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 45, 60, 1234567890))
 
-            # Mock cache service (hit to return quickly)
-            with patch("butterscout.services.search_service.CacheService") as mock_cache_class:
-                mock_cache = mock_cache_class.return_value
-                cached_response = SearchResponse(
-                    query="test",
-                    results=[],
-                    metadata=ResponseMetadata(
-                        search_time_ms=10,
-                        cache_hit=False,
-                        sources_queried=["searxng"],
-                        rate_limited=False,
-                    ),
-                )
-                mock_cache.get = AsyncMock(return_value=cached_response)
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.post("/api/v1/search", json={"query": "test"})
 
-                client = TestClient(app, raise_server_exceptions=False)
-                response = client.post("/api/v1/search", json={"query": "test"})
-
-                # Check rate limit headers
-                assert "X-RateLimit-Limit" in response.headers
-                assert "X-RateLimit-Remaining" in response.headers
-                assert "X-RateLimit-Reset" in response.headers
-                assert response.headers["X-RateLimit-Limit"] == "60"
-                assert response.headers["X-RateLimit-Remaining"] == "45"
+            # Check rate limit headers
+            assert "X-RateLimit-Limit" in response.headers
+            assert "X-RateLimit-Remaining" in response.headers
+            assert "X-RateLimit-Reset" in response.headers
+            assert response.headers["X-RateLimit-Limit"] == "60"
+            assert response.headers["X-RateLimit-Remaining"] == "45"
 
 
 @pytest.mark.asyncio
@@ -350,34 +332,35 @@ async def test_rate_limiter_uses_forwarded_ip() -> None:
         mock_state.settings.blocked_domains_list = []
         mock_state.settings.BS_MAX_RESULTS = 10
 
+        # Mock cache service (hit to return quickly)
+        cached_response = SearchResponse(
+            query="test",
+            results=[],
+            metadata=ResponseMetadata(
+                search_time_ms=10,
+                cache_hit=False,
+                sources_queried=["searxng"],
+                rate_limited=False,
+            ),
+        )
+        mock_state.cache_service = MagicMock()
+        mock_state.cache_service.get = AsyncMock(return_value=cached_response)
+        mock_state.cache_service.set = AsyncMock(return_value=True)
+
         with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
             mock_limiter = mock_limiter_class.return_value
             mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 59, 60, 1234567890))
 
-            with patch("butterscout.services.search_service.CacheService") as mock_cache_class:
-                cached_response = SearchResponse(
-                    query="test",
-                    results=[],
-                    metadata=ResponseMetadata(
-                        search_time_ms=10,
-                        cache_hit=False,
-                        sources_queried=["searxng"],
-                        rate_limited=False,
-                    ),
-                )
-                mock_cache = mock_cache_class.return_value
-                mock_cache.get = AsyncMock(return_value=cached_response)
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.post(
+                "/api/v1/search",
+                json={"query": "test"},
+                headers={"X-Forwarded-For": "203.0.113.7, 10.0.0.1"},
+            )
 
-                client = TestClient(app, raise_server_exceptions=False)
-                response = client.post(
-                    "/api/v1/search",
-                    json={"query": "test"},
-                    headers={"X-Forwarded-For": "203.0.113.7, 10.0.0.1"},
-                )
-
-                assert response.status_code == 200
-                _args, kwargs = mock_limiter.check_rate_limit.await_args
-                assert kwargs["client_ip"] == "203.0.113.7"
+            assert response.status_code == 200
+            _args, kwargs = mock_limiter.check_rate_limit.await_args
+            assert kwargs["client_ip"] == "203.0.113.7"
 
 
 @pytest.mark.asyncio
@@ -421,23 +404,23 @@ async def test_searxng_failure() -> None:
             side_effect=Exception("SearXNG connection failed")
         )
 
+        # Mock cache service
+        mock_state.cache_service = MagicMock()
+        mock_state.cache_service.get = AsyncMock(return_value=None)
+        mock_state.cache_service.set = AsyncMock(return_value=True)
+
         # Mock rate limiter to allow
         with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
             mock_limiter = mock_limiter_class.return_value
             mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 59, 60, 1234567890))
 
-            # Mock cache miss
-            with patch("butterscout.services.search_service.CacheService") as mock_cache_class:
-                mock_cache = mock_cache_class.return_value
-                mock_cache.get = AsyncMock(return_value=None)
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.post("/api/v1/search", json={"query": "test"})
 
-                client = TestClient(app, raise_server_exceptions=False)
-                response = client.post("/api/v1/search", json={"query": "test"})
-
-                assert response.status_code == 502
-                data = response.json()
-                assert data["error"]["code"] == "UPSTREAM_ERROR"
-                assert data["error"]["details"]["component"] == "searxng"
+            assert response.status_code == 502
+            data = response.json()
+            assert data["error"]["code"] == "UPSTREAM_ERROR"
+            assert data["error"]["details"]["component"] == "searxng"
 
 
 @pytest.mark.asyncio

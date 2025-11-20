@@ -9,6 +9,8 @@ from typing import Optional
 
 import structlog
 
+from butterscout.clients.extraction_strategy import ExtractionStrategy
+from butterscout.clients.redis_client import ValkeyClient
 from butterscout.clients.searxng_client import SearXNGClient
 from butterscout.config import Settings
 from butterscout.models.exceptions import (
@@ -38,14 +40,16 @@ class SearchService:
     def __init__(
         self,
         settings: Settings,
-        redis_client,
+        redis_client: ValkeyClient,
         searxng_client: SearXNGClient,
-        extraction_strategy,
-    ):
+        extraction_strategy: ExtractionStrategy,
+        cache_service: CacheService,
+    ) -> None:
         self.settings = settings
         self.redis_client = redis_client
         self.searxng_client = searxng_client
         self.extraction_strategy = extraction_strategy
+        self.cache_service = cache_service
 
     async def execute_search(
         self,
@@ -142,8 +146,7 @@ class SearchService:
 
         # 4. Check Cache
         start_time = time.perf_counter()
-        cache_service = CacheService(self.redis_client, self.settings)
-        cached_response = await cache_service.get(request_body, request_id)
+        cached_response = await self.cache_service.get(request_body, request_id)
 
         if cached_response:
             if request_state and hasattr(request_state, "cache_hit"):
@@ -285,7 +288,7 @@ class SearchService:
         )
 
         # 12. Cache Response
-        await cache_service.set(request_body, response, request_id)
+        await self.cache_service.set(request_body, response, request_id)
 
         logger.info(
             "search_request_complete",

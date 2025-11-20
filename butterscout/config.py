@@ -168,7 +168,7 @@ def load_settings() -> Settings:
     """Load and validate settings from environment variables."""
     try:
         # Settings() will load from env vars via model_config
-        settings = Settings()  # type: ignore[call-arg]
+        settings = Settings()
         validate_settings(settings)
         return settings
     except ValidationError as exc:

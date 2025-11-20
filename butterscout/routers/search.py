@@ -38,6 +38,7 @@ async def search(
         redis_client=app_state.redis_client,
         searxng_client=app_state.searxng_client,
         extraction_strategy=app_state.extraction_strategy,
+        cache_service=app_state.cache_service,
     )
 
     logger.info(

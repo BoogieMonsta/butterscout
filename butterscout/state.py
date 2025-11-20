@@ -10,6 +10,8 @@ from butterscout.clients.redis_client import ValkeyClient
 from butterscout.clients.searxng_client import SearXNGClient
 from butterscout.clients.trafilatura_client import TrafilaturaClient
 from butterscout.config import Settings
+from butterscout.services.cache_backend import CacheBackend
+from butterscout.services.cache_service import CacheService
 
 
 class AppState:
@@ -21,6 +23,8 @@ class AppState:
     crawl4ai_client: Crawl4AIClient
     trafilatura_client: Optional[TrafilaturaClient]
     extraction_strategy: ExtractionStrategy
+    cache_backend: CacheBackend
+    cache_service: CacheService
 
 
 app_state = AppState()

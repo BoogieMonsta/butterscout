@@ -36,6 +36,11 @@ def mock_app_state() -> Generator[MagicMock, None, None]:
         mock_state.searxng_client = MagicMock()
         mock_state.extraction_strategy = MagicMock()
 
+        # Mock cache service with async methods
+        mock_state.cache_service = MagicMock()
+        mock_state.cache_service.get = AsyncMock(return_value=None)
+        mock_state.cache_service.set = AsyncMock(return_value=True)
+
         yield mock_state
 
 
@@ -76,80 +81,78 @@ async def test_cache_miss_fetch_and_store_flow(mock_app_state: MagicMock) -> Non
         cached_response = response
         return True
 
+    # Mock cache service methods (miss on get, track set)
+    mock_app_state.cache_service.get = AsyncMock(return_value=None)  # Cache miss
+    mock_app_state.cache_service.set = AsyncMock(side_effect=mock_cache_set)
+
     # Mock rate limiter to allow
     with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
         mock_limiter = mock_limiter_class.return_value
         mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 59, 60, 1234567890))
 
-        # Mock cache service (miss on get, track set)
-        with patch("butterscout.services.search_service.CacheService") as mock_cache_class:
-            mock_cache = mock_cache_class.return_value
-            mock_cache.get = AsyncMock(return_value=None)  # Cache miss
-            mock_cache.set = AsyncMock(side_effect=mock_cache_set)
+        # Mock extraction orchestrator
+        with patch(
+            "butterscout.services.search_service.ExtractionOrchestrator"
+        ) as mock_orch_class:
+            mock_orch = mock_orch_class.return_value
+            mock_orch.extract_all = AsyncMock(
+                return_value=[
+                    ExtractedContent(
+                        url=HttpUrl("https://example.com/page1"),
+                        content="Full content from page 1",
+                        word_count=50,
+                        extracted_by="crawl4ai",
+                        extraction_ok=True,
+                        extraction_time_ms=100,
+                    ),
+                    ExtractedContent(
+                        url=HttpUrl("https://example.com/page2"),
+                        content="Full content from page 2",
+                        word_count=75,
+                        extracted_by="crawl4ai",
+                        extraction_ok=True,
+                        extraction_time_ms=150,
+                    ),
+                ]
+            )
 
-            # Mock extraction orchestrator
-            with patch(
-                "butterscout.services.search_service.ExtractionOrchestrator"
-            ) as mock_orch_class:
-                mock_orch = mock_orch_class.return_value
-                mock_orch.extract_all = AsyncMock(
-                    return_value=[
-                        ExtractedContent(
-                            url=HttpUrl("https://example.com/page1"),
-                            content="Full content from page 1",
-                            word_count=50,
-                            extracted_by="crawl4ai",
-                            extraction_ok=True,
-                            extraction_time_ms=100,
-                        ),
-                        ExtractedContent(
-                            url=HttpUrl("https://example.com/page2"),
-                            content="Full content from page 2",
-                            word_count=75,
-                            extracted_by="crawl4ai",
-                            extraction_ok=True,
-                            extraction_time_ms=150,
-                        ),
-                    ]
+            # Mock deduplicator and ranker to pass through
+            with patch("butterscout.services.search_service.URLDeduplicator") as mock_dedup:
+                mock_dedup.deduplicate = MagicMock(
+                    side_effect=lambda results, request_id: results
                 )
 
-                # Mock deduplicator and ranker to pass through
-                with patch("butterscout.services.search_service.URLDeduplicator") as mock_dedup:
-                    mock_dedup.deduplicate = MagicMock(
+                with patch("butterscout.services.search_service.Ranker") as mock_ranker_class:
+                    mock_ranker = mock_ranker_class.return_value
+                    mock_ranker.rank = MagicMock(
                         side_effect=lambda results, request_id: results
                     )
 
-                    with patch("butterscout.services.search_service.Ranker") as mock_ranker_class:
-                        mock_ranker = mock_ranker_class.return_value
-                        mock_ranker.rank = MagicMock(
-                            side_effect=lambda results, request_id: results
-                        )
+                    client = TestClient(app, raise_server_exceptions=False)
+                    response = client.post(
+                        "/api/v1/search",
+                        json={"query": "test query", "include_content": True},
+                    )
 
-                        client = TestClient(app, raise_server_exceptions=False)
-                        response = client.post(
-                            "/api/v1/search",
-                            json={"query": "test query", "include_content": True},
-                        )
+                    # Verify response
+                    assert response.status_code == 200
+                    data = response.json()
 
-                        # Verify response
-                        assert response.status_code == 200
-                        data = response.json()
+                    # Verify cache miss
+                    assert data["metadata"]["cache_hit"] is False
 
-                        # Verify cache miss
-                        assert data["metadata"]["cache_hit"] is False
+                    # Verify SearXNG was called
+                    mock_app_state.searxng_client.search.assert_called_once()
 
-                        # Verify SearXNG was called
-                        mock_app_state.searxng_client.search.assert_called_once()
+                    # Verify extraction was called
+                    mock_orch.extract_all.assert_called_once()
 
-                        # Verify extraction was called
-                        mock_orch.extract_all.assert_called_once()
-
-                        # Verify cache.set was called with the response
-                        assert cache_set_called is True
-                        assert cached_request is not None
-                        assert cached_response is not None
-                        assert cached_response.query == "test query"
-                        assert len(cached_response.results) == 2
+                    # Verify cache.set was called with the response
+                    assert cache_set_called is True
+                    assert cached_request is not None
+                    assert cached_response is not None
+                    assert cached_response.query == "test query"
+                    assert len(cached_response.results) == 2
 
 
 @pytest.mark.asyncio

@@ -347,9 +347,6 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     )
 
 
-
-
-
 @app.exception_handler(RateLimitExceededError)
 async def rate_limit_handler(request: Request, exc: RateLimitExceededError) -> JSONResponse:
     request_id = getattr(request.state, "request_id", "unknown")
