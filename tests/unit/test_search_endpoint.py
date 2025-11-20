@@ -259,9 +259,7 @@ async def test_search_applies_extract_timeout(mock_app_state: MagicMock) -> None
         mock_limiter = mock_limiter_class.return_value
         mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 59, 60, 1234567890))
 
-        with patch(
-            "butterscout.services.search_service.ExtractionOrchestrator"
-        ) as mock_orch_class:
+        with patch("butterscout.services.search_service.ExtractionOrchestrator") as mock_orch_class:
             mock_orch = mock_orch_class.return_value
             mock_orch.extract_all = AsyncMock(return_value=[])
 

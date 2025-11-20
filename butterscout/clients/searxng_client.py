@@ -106,7 +106,7 @@ class SearXNGClient:
                     "X-Forwarded-For": "127.0.0.1",
                     "X-Real-IP": "127.0.0.1",
                 }
-                
+
                 response = await self.client.get(
                     f"{self.base_url}/search",
                     params=params,

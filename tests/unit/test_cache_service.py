@@ -136,9 +136,7 @@ async def test_cache_set_with_valid_ttl_from_string(
 
 
 @pytest.mark.asyncio
-async def test_cache_set_rejects_zero_ttl(
-    redis_client: ValkeyClient, settings: Settings
-) -> None:
+async def test_cache_set_rejects_zero_ttl(redis_client: ValkeyClient, settings: Settings) -> None:
     """Test that cache set rejects zero TTL."""
     from unittest.mock import AsyncMock
 

@@ -91,9 +91,7 @@ async def test_cache_miss_fetch_and_store_flow(mock_app_state: MagicMock) -> Non
         mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 59, 60, 1234567890))
 
         # Mock extraction orchestrator
-        with patch(
-            "butterscout.services.search_service.ExtractionOrchestrator"
-        ) as mock_orch_class:
+        with patch("butterscout.services.search_service.ExtractionOrchestrator") as mock_orch_class:
             mock_orch = mock_orch_class.return_value
             mock_orch.extract_all = AsyncMock(
                 return_value=[
@@ -118,15 +116,11 @@ async def test_cache_miss_fetch_and_store_flow(mock_app_state: MagicMock) -> Non
 
             # Mock deduplicator and ranker to pass through
             with patch("butterscout.services.search_service.URLDeduplicator") as mock_dedup:
-                mock_dedup.deduplicate = MagicMock(
-                    side_effect=lambda results, request_id: results
-                )
+                mock_dedup.deduplicate = MagicMock(side_effect=lambda results, request_id: results)
 
                 with patch("butterscout.services.search_service.Ranker") as mock_ranker_class:
                     mock_ranker = mock_ranker_class.return_value
-                    mock_ranker.rank = MagicMock(
-                        side_effect=lambda results, request_id: results
-                    )
+                    mock_ranker.rank = MagicMock(side_effect=lambda results, request_id: results)
 
                     client = TestClient(app, raise_server_exceptions=False)
                     response = client.post(

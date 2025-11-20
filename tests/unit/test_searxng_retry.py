@@ -25,10 +25,7 @@ async def test_searxng_retry_logic_network_error():
     mock_response.raise_for_status.return_value = None
 
     # First call raises ConnectError (subclass of RequestError), second call returns success
-    mock_httpx_client.get.side_effect = [
-        httpx.ConnectError("Connection refused"),
-        mock_response
-    ]
+    mock_httpx_client.get.side_effect = [httpx.ConnectError("Connection refused"), mock_response]
 
     request = SearchRequest(query="test")
 
@@ -38,6 +35,7 @@ async def test_searxng_retry_logic_network_error():
     # Verify it called get twice (retry happened)
     assert mock_httpx_client.get.call_count == 2
     assert results == []
+
 
 @pytest.mark.asyncio
 async def test_searxng_retry_exhausted():
