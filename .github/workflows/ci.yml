@@ -25,13 +25,19 @@ jobs:
         run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
-        run: uv sync --all-extras
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv sync --all-extras
 
       - name: Lint with ruff
-        run: uv run ruff check butterscout/ tests/
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv run ruff check butterscout/ tests/
 
       - name: Type check with mypy
-        run: uv run mypy --strict butterscout/
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv run mypy --strict butterscout/
 
   test:
     runs-on: ubuntu-latest
@@ -63,10 +69,14 @@ jobs:
         run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
-        run: uv sync --all-extras
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv sync --all-extras
 
       - name: Run tests
-        run: uv run pytest tests/ -v --cov=butterscout --cov-report=term-missing
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv run pytest tests/ -v --cov=butterscout --cov-report=term-missing
         env:
           BS_REDIS_URL: redis://localhost:6379/0
           BS_SEARXNG_URL: http://localhost:8080
@@ -91,10 +101,14 @@ jobs:
         run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
-        run: uv sync --all-extras
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv sync --all-extras
 
       - name: Validate openapi.yaml
-        run: uv run python -m openapi_spec_validator openapi.yaml
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv run python -m openapi_spec_validator openapi.yaml
 
   docker-build:
     runs-on: ubuntu-latest
