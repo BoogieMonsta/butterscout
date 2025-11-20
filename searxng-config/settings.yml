@@ -26,11 +26,15 @@ server:
   bind_address: "0.0.0.0"
   # SECURITY: Change this secret in production! Generate with: openssl rand -hex 32
   # This default value is INSECURE and must be replaced before production deployment
-  secret_key: "INSECURE_DEFAULT_CHANGE_IN_PRODUCTION"
+  secret_key: "butterscout_secret_key_change_me_please_12345"
   # Disable rate limiter (handled by Butterscout API)
   limiter: false
   # Disable image proxy for better performance
   image_proxy: false
+  # Private instance - disables some bot protection and rate limits
+  public_instance: false
+  # Allow GET requests
+  method: "GET"
 
 ui:
   static_use_hash: true
