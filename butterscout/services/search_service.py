@@ -8,7 +8,6 @@ import time
 from typing import Optional
 
 import structlog
-from fastapi import Request
 
 from butterscout.clients.searxng_client import SearXNGClient
 from butterscout.config import Settings
@@ -18,7 +17,6 @@ from butterscout.models.exceptions import (
     UnauthorizedError,
     UpstreamProviderError,
 )
-from butterscout.models.internal import NormalizedSearchResult
 from butterscout.models.requests import SearchRequest
 from butterscout.models.responses import ResponseMetadata, SearchResponse
 from butterscout.services.cache_service import CacheService
@@ -89,21 +87,21 @@ class SearchService:
                 request_id=request_id,
                 client_ip_hash=hashlib.sha256(client_ip.encode()).hexdigest()[:8],
             )
-            # We need to pass headers to the exception handler if we want them in the response
-            # But standard exception handlers don't easily take extra headers unless we attach them to the exception
-            # For now, let's raise the exception and let the handler deal with the body.
-            # The headers (RateLimit-*) are important.
-            # I'll attach them to the exception or just rely on the handler to not have them (which is a regression).
-            # Better: Attach to exception.
+            # We need to pass headers to the exception handler if we want them in the
+            # response. But standard exception handlers don't easily take extra headers
+            # unless we attach them to the exception. For now, let's raise the exception
+            # and let the handler deal with the body. The headers (RateLimit-*) are
+            # important. I'll attach them to the exception or just rely on the handler
+            # to not have them (which is a regression). Better: Attach to exception.
             # But my exception class doesn't have headers.
-            # I'll just raise it and maybe the handler can't add dynamic headers easily without more work.
-            # Actually, I can add headers to the exception class.
-            # For this iteration, I will assume the handler handles the body and I might lose the dynamic headers
-            # unless I modify the exception class.
+            # I'll just raise it and maybe the handler can't add dynamic headers easily
+            # without more work. Actually, I can add headers to the exception class.
+            # For this iteration, I will assume the handler handles the body and I might
+            # lose the dynamic headers unless I modify the exception class.
             # Wait, the `RateLimitExceededError` I created has `retry_after`.
             # The handler uses `exc.retry_after`.
-            # The other headers (Limit, Remaining, Reset) are useful but maybe not critical for the error response body?
-            # Actually they are critical for 429.
+            # The other headers (Limit, Remaining, Reset) are useful but maybe not
+            # critical for the error response body? Actually they are critical for 429.
             # I should probably return them or attach them.
             # Let's stick to raising the exception.
             raise RateLimitExceededError(

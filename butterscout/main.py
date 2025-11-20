@@ -26,8 +26,14 @@ from butterscout.clients.stubs import (
     StubTrafilaturaClient,
 )
 from butterscout.clients.trafilatura_client import TrafilaturaClient
-from butterscout.config import Settings, load_settings
+from butterscout.config import load_settings
 from butterscout.middleware.security_headers import add_security_headers
+from butterscout.models.exceptions import (
+    MaxResultsExceededError,
+    RateLimitExceededError,
+    UnauthorizedError,
+    UpstreamProviderError,
+)
 from butterscout.routers import health, search
 from butterscout.routers import metrics as metrics_router
 from butterscout.services.metrics import metrics_service
@@ -341,12 +347,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     )
 
 
-from butterscout.models.exceptions import (
-    MaxResultsExceededError,
-    RateLimitExceededError,
-    UnauthorizedError,
-    UpstreamProviderError,
-)
+
 
 
 @app.exception_handler(RateLimitExceededError)
