@@ -94,9 +94,9 @@ class SearXNGClient:
         # Track request duration for metrics
         start_time = time.perf_counter()
 
-        # Execute with retry on 5xx/timeout
+        # Execute with retry on 5xx/timeout/network errors
         attempt = 0
-        last_error = None
+        last_error: Optional[Exception] = None
 
         while attempt < 2:  # 1 retry = 2 total attempts
             try:
@@ -139,7 +139,8 @@ class SearXNGClient:
 
                 return results
 
-            except (httpx.TimeoutException, httpx.HTTPStatusError) as e:
+            except (httpx.TimeoutException, httpx.HTTPStatusError, httpx.RequestError) as e:
+                # RequestError covers ConnectError, ReadError, WriteError, etc.
                 last_error = e
                 attempt += 1
 
@@ -163,11 +164,16 @@ class SearXNGClient:
             error=str(last_error),
             attempts=attempt + 1,
         )
-        raise last_error  # type: ignore[misc]
+
+        if last_error:
+            raise last_error
+
+        # This should only be reached if the loop didn't run or exceptions were swallowed (unlikely)
+        raise RuntimeError("SearXNG request failed with unknown error")
 
     def _should_retry(self, error: Exception) -> bool:
         """Determine if error is retryable."""
-        if isinstance(error, httpx.TimeoutException):
+        if isinstance(error, (httpx.TimeoutException, httpx.ConnectError)):
             return True
         if isinstance(error, httpx.HTTPStatusError):
             # Retry on 5xx and 429 errors

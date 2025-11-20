@@ -122,6 +122,17 @@ class TrafilaturaClient:
                 extraction_time_ms=extraction_time_ms,
             )
 
+        except httpx.RequestError as e:
+            extraction_time_ms = int((time.perf_counter() - start_time) * 1000)
+            logger.warning(
+                "trafilatura_request_error",
+                request_id=request_id,
+                url=url,
+                error=str(e),
+                extraction_time_ms=extraction_time_ms,
+            )
+            raise RuntimeError(f"Trafilatura fetch failed: {e}") from e
+
         except Exception as e:
             extraction_time_ms = int((time.perf_counter() - start_time) * 1000)
             logger.error(

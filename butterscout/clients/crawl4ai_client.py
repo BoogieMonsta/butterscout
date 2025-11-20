@@ -150,6 +150,18 @@ class Crawl4AIClient:
             )
             raise TimeoutError(f"Crawl4AI extraction timeout: {url}") from e
 
+        except httpx.RequestError as e:
+            extraction_time_ms = int((time.perf_counter() - start_time) * 1000)
+            logger.warning(
+                "crawl4ai_request_error",
+                request_id=request_id,
+                url=url,
+                error=str(e),
+                extraction_time_ms=extraction_time_ms,
+            )
+            # Re-raise as standard exception for higher-level handling
+            raise RuntimeError(f"Crawl4AI connection/request failed: {e}") from e
+
         except Exception as e:
             extraction_time_ms = int((time.perf_counter() - start_time) * 1000)
             logger.error(
