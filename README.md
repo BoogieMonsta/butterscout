@@ -4,7 +4,7 @@
 
 Butterscout is a transparent, developer-first alternative to Tavily and Serper. It orchestrates **SearXNG** (for search) and **Crawl4AI** (for extraction) to provide a unified, LLM-ready API for web research.
 
-> **Note**: This is the Open Source Core. A Managed Service with residential proxies and high-volume tiers is coming soon.
+> **Note**: A managed version with zero-ops deployment is in development. [Follow for updates](https://github.com/BoogieMonsta/butterscout/discussions).
 
 ## Why Butterscout?
 
