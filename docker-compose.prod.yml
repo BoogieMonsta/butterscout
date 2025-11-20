@@ -1,18 +1,45 @@
 services:
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile.production
-    image: butterscout/api:latest
+  butterscout-api:
+    # Use pre-built image from Docker Hub (pushed by CI/CD)
+    image: sesametech/butterscout:latest
     container_name: butterscout-api
     restart: always
     ports:
       - "8000:8000"
     environment:
-      - BS_REDIS_URL=redis://redis:6379/0
+      # Service URLs (Note: Dokploy auto-generates Redis password)
+      - BS_REDIS_URL=redis://default:${REDIS_PASSWORD:-changeme}@redis:6379/0
       - BS_SEARXNG_URL=http://searxng:8080
       - BS_CRAWL4AI_URL=http://crawl4ai:11235
+      
+      # Cache configuration
+      - BS_CACHE_TYPE=redis
+      - BS_CACHE_TTL_SECONDS=3600
+      
+      # Rate limiting
+      - BS_RATE_LIMIT_PER_HOUR=60
+      - BS_API_KEY_RATE_LIMIT_PER_HOUR=600
+      - BS_GLOBAL_RATE_LIMIT_PER_HOUR=10000
+      
+      # Search configuration
+      - BS_MAX_RESULTS=10
+      - BS_MAX_CONCURRENT_EXTRACTIONS=4
+      - BS_EXTRACTION_TIMEOUT_MS=2500
+      - BS_REQUEST_TIMEOUT_MS=6000
+      
+      # Fallback settings
+      - BS_FALLBACK_ENABLED=true
+      - BS_FALLBACK_TIMEOUT_MS=2000
+      - BS_FALLBACK_MAX_WORKERS=2
+      
+      # Observability
       - BS_LOG_LEVEL=INFO
+      - BS_ENABLE_METRICS=true
+      - BS_HEALTH_TIMEOUT_MS=750
+      
+      # CORS
+      - BS_CORS_ORIGINS=*
+      
       # Generate a secure key in production!
       # - BS_API_KEY=${BS_API_KEY} 
     depends_on:
@@ -31,7 +58,11 @@ services:
     image: valkey/valkey:8-alpine
     container_name: butterscout-redis
     restart: always
-    command: valkey-server --save 60 1 --loglevel warning
+    command: redis-server --save "" --appendonly no --maxmemory 512mb --maxmemory-policy allkeys-lru --loglevel warning --requirepass ${REDIS_PASSWORD:-changeme}
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
+    # Don't expose ports in production - services communicate via internal network
+    ports: []
     volumes:
       - redis_data:/data
     networks:
@@ -44,7 +75,7 @@ services:
     environment:
       - SEARXNG_BASE_URL=http://searxng:8080/
     volumes:
-      - ./searxng:/etc/searxng
+      - ./searxng-config:/etc/searxng
     networks:
       - butterscout-network
     cap_drop:

@@ -24,7 +24,7 @@ This guide covers everything you need to know about running Butterscout with Doc
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/butterscout.git
+git clone https://github.com/BoogieMonsta/butterscout.git
 cd butterscout
 
 # Copy environment template
@@ -692,7 +692,7 @@ services:
 
 - **Documentation**: See [README.md](README.md)
 - **API Docs**: http://localhost:8000/docs
-- **Issues**: https://github.com/yourusername/butterscout/issues
+- **Issues**: https://github.com/BoogieMonsta/butterscout/issues
 - **Tech Spec**: [TECH SPEC.md](TECH%20SPEC.md)
 - **Engineering Guide**: [ENGINEERING_GUIDE.md](ENGINEERING_GUIDE.md)
 

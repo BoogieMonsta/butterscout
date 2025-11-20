@@ -37,7 +37,7 @@ We love ideas! Open an issue to discuss your feature request before writing code
 
 1.  **Clone the repo**:
     ```bash
-    git clone https://github.com/yourusername/butterscout.git
+    git clone https://github.com/BoogieMonsta/butterscout.git
     cd butterscout
     ```
 

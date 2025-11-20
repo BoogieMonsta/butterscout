@@ -18,7 +18,91 @@ Butterscout consists of 4 services that must be deployed in this order:
 3. **Crawl4AI** - Content extraction service
 4. **Butterscout API** - Main application
 
-## Deployment Steps
+## Deployment Approaches
+
+Dokploy supports two deployment methods:
+
+### 🎯 **Recommended: Docker Compose (Infrastructure as Code)**
+Use `docker-compose.prod.yml` for version-controlled, reproducible deployments. This guide now focuses on this approach.
+
+**Benefits**:
+- ✅ Single source of truth in Git
+- ✅ Easy to replicate across environments
+- ✅ Automatic updates via CI/CD
+- ✅ All configuration version-controlled
+
+### Alternative: Manual UI Configuration
+Configure each service individually in Dokploy UI. See the [Manual Service Configuration](#manual-service-configuration-legacy) section if needed.
+
+---
+
+## Docker Compose Deployment (Recommended)
+
+### Prerequisites
+- Dokploy instance running
+- GitHub repository access configured in Dokploy
+- Docker Hub account with `sesametech/butterscout:latest` image
+
+### Deployment Steps
+
+#### 1. Prepare Environment Variables
+
+In Dokploy, create environment variables for your application:
+
+```bash
+# Required: Set a strong Redis password
+REDIS_PASSWORD=<generate-with-openssl-rand>
+
+# Optional: Set API key
+BS_API_KEY=<your-api-key>
+
+# Optional: Configure CORS
+BS_CORS_ORIGINS=https://yourdomain.com
+```
+
+#### 2. Create Docker Compose Application
+
+1. In Dokploy, click **Create Application**
+2. Select **Docker Compose** type
+3. Configure:
+   - **Name**: `butterscout`
+   - **Source**: GitHub repository
+   - **Branch**: `main`
+   - **Compose Files**: `docker-compose.yml:docker-compose.prod.yml`
+   
+4. Set environment variables created in step 1
+
+5. Click **Deploy**
+
+That's it! Dokploy will:
+- Pull your repository
+- Merge the compose files
+- Start all services (Redis, SearXNG, Crawl4AI, API)
+- Handle networking automatically
+
+#### 3. Verify Deployment
+
+Check service health:
+```bash
+curl https://your-dokploy-domain.com/health | jq
+```
+
+Expected response:
+```json
+{
+  "status": "healthy",
+  "components": {
+    "valkey": {"status": "ok"},
+    "cache": {"status": "ok"},
+    "searxng": {"status": "ok"},
+    "crawl4ai": {"status": "ok"}
+  }
+}
+```
+
+---
+
+## Manual Service Configuration (Legacy)
 
 ### 1. Create Redis/Valkey Service
 

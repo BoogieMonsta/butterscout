@@ -11,11 +11,9 @@ This script demonstrates:
 import asyncio
 import time
 
-import httpx
 import structlog
 
 from butterscout.clients.crawl4ai_client import Crawl4AIClient
-from butterscout.clients.extraction_strategy import ExtractionStrategy
 from butterscout.clients.trafilatura_client import TrafilaturaClient
 from butterscout.config import Settings
 
@@ -122,7 +120,7 @@ async def demo_trafilatura_extraction() -> None:
     try:
         print("\n📄 Sample HTML Document:")
         print(f"   Length: {len(html)} characters")
-        print(f"   Contains: Header, Nav, Article Content, Footer, Ads")
+        print("   Contains: Header, Nav, Article Content, Footer, Ads")
 
         print("\n⏱️  Extracting content with Trafilatura...")
         start_time = time.perf_counter()
@@ -131,7 +129,7 @@ async def demo_trafilatura_extraction() -> None:
 
         extraction_time = (time.perf_counter() - start_time) * 1000
 
-        print(f"\n✅ Extraction Complete!")
+        print("\n✅ Extraction Complete!")
         print(f"   Extraction Time: {extraction_time:.1f}ms")
         print(f"   Content Length: {len(content) if content else 0} characters")
         print(f"   Word Count: {len(content.split()) if content else 0} words")
@@ -184,21 +182,21 @@ async def demo_fallback_behavior() -> None:
     # Create clients
     crawl4ai = Crawl4AIClient(settings)
     trafilatura = TrafilaturaClient(settings)
-    strategy = ExtractionStrategy(crawl4ai, trafilatura, settings)
+    # strategy = ExtractionStrategy(crawl4ai, trafilatura, settings)
 
     await crawl4ai.connect()
     await trafilatura.connect()
 
     # Sample HTML
-    html = """
-    <html><body>
-    <article>
-        <h1>Test Article</h1>
-        <p>This content should be extracted by the fallback extractor (Trafilatura)
-        when Crawl4AI is unavailable.</p>
-    </article>
-    </body></html>
-    """
+    # html = \"\"\"
+    # <html><body>
+    # <article>
+    #     <h1>Test Article</h1>
+    #     <p>This content should be extracted by the fallback extractor (Trafilatura)
+    #     when Crawl4AI is unavailable.</p>
+    # </article>
+    # </body></html>
+    # \"\"\"
 
     try:
         # Mock the Trafilatura HTTP client to return our test HTML
@@ -210,8 +208,8 @@ async def demo_fallback_behavior() -> None:
         # Since we can't easily make a real HTTP request in this demo,
         # we'll show the concept
         print("\n📋 Fallback Strategy:")
-        print(f"   Primary Extractor: Crawl4AI")
-        print(f"   Fallback Extractor: Trafilatura")
+        print("   Primary Extractor: Crawl4AI")
+        print("   Fallback Extractor: Trafilatura")
         print(f"   Fallback Enabled: {settings.BS_FALLBACK_ENABLED}")
         print(f"   Crawl4AI Timeout: {settings.BS_EXTRACTION_TIMEOUT_MS}ms")
         print(f"   Trafilatura Timeout: {settings.BS_FALLBACK_TIMEOUT_MS}ms")

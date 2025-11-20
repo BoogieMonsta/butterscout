@@ -100,9 +100,17 @@ class SearXNGClient:
 
         while attempt < 2:  # 1 retry = 2 total attempts
             try:
+                # Add X-Forwarded-For header for SearXNG bot detection
+                # SearXNG expects this header even for private instances
+                headers = {
+                    "X-Forwarded-For": "127.0.0.1",
+                    "X-Real-IP": "127.0.0.1",
+                }
+                
                 response = await self.client.get(
                     f"{self.base_url}/search",
                     params=params,
+                    headers=headers,
                 )
                 response.raise_for_status()
 

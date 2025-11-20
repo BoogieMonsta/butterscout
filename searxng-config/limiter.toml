@@ -1,3 +1,0 @@
-[botdetection]
-  ip_limit = { filter = { link_token = true, separate_ip = true }, limit = { type = "sliding_window", window = 3600, max_requests = 100000 } }
-  link_token = { filter = { link_token = true, separate_ip = true }, limit = { type = "sliding_window", window = 3600, max_requests = 100000 } }

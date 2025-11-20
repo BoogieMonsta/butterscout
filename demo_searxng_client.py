@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Demonstration of SearXNG client functionality."""
 import asyncio
+
 import httpx
 import respx
+
 from butterscout.clients.searxng_client import SearXNGClient
 from butterscout.config import Settings
-from butterscout.models.requests import SearchRequest, SearchOptions
+from butterscout.models.requests import SearchRequest
 from butterscout.utils.domain_filter import is_domain_allowed
 
 
@@ -20,19 +22,30 @@ async def demo_successful_search() -> None:
             {
                 "title": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
                 "url": "https://arxiv.org/abs/2005.11401",
-                "content": "We explore RAG models where the parametric memory is a pre-trained seq2seq model and the non-parametric memory is a dense vector index of Wikipedia, accessed with a pre-trained neural retriever.",
+                "content": (
+                    "We explore RAG models where the parametric memory is a pre-trained seq2seq "
+                    "model and the non-parametric memory is a dense vector index of Wikipedia, "
+                    "accessed with a pre-trained neural retriever."
+                ),
                 "score": 0.95,
             },
             {
                 "title": "What is RAG? - IBM",
                 "url": "https://www.ibm.com/topics/retrieval-augmented-generation",
-                "content": "Retrieval-Augmented Generation (RAG) is an AI framework that retrieves facts from an external knowledge base to ground large language models on the most accurate, up-to-date information.",
+                "content": (
+                    "Retrieval-Augmented Generation (RAG) is an AI framework that retrieves facts "
+                    "from an external knowledge base to ground large language models on the most "
+                    "accurate, up-to-date information."
+                ),
                 "score": 0.87,
             },
             {
                 "title": "RAG explained - AWS",
                 "url": "https://aws.amazon.com/what-is/retrieval-augmented-generation/",
-                "content": "Retrieval-Augmented Generation (RAG) is the process of optimizing the output of a large language model.",
+                "content": (
+                    "Retrieval-Augmented Generation (RAG) is the process of optimizing the output "
+                    "of a large language model."
+                ),
             },
         ]
     }
@@ -210,7 +223,9 @@ async def demo_no_retry_on_4xx() -> None:
                 await client.search(request, request_id="demo-004")
             except httpx.HTTPStatusError as e:
                 print(
-                    f"\n✓ Raised exception immediately: {e.response.status_code} {e.response.reason_phrase}")
+                    f"\n✓ Raised exception immediately: {e.response.status_code} "
+                    f"{e.response.reason_phrase}"
+                )
 
         finally:
             await client.disconnect()
@@ -312,9 +327,13 @@ async def demo_missing_fields() -> None:
                     f"  Title: {result.title} {'(fallback)' if result.title == 'No title' else ''}")
                 print(f"  URL: {result.url}")
                 print(
-                    f"  Score: {result.score:.4f} {'(position-based)' if result.score == 1.0 / i else ''}")
+                    f"  Score: {result.score:.4f} "
+                    f"{'(position-based)' if result.score == 1.0 / i else ''}"
+                )
                 print(
-                    f"  Snippet: '{result.snippet}' {'(empty fallback)' if not result.snippet else ''}")
+                    f"  Snippet: '{result.snippet}' "
+                    f"{'(empty fallback)' if not result.snippet else ''}"
+                )
                 print()
 
             print("✓ Missing fields handled gracefully with fallbacks")

@@ -362,7 +362,7 @@ Add to README:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/butterscout.git
+   git clone https://github.com/BoogieMonsta/butterscout.git
    cd butterscout
    ```
 
