@@ -1,9 +1,12 @@
-import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock
+
 import httpx
+import pytest
+
 from butterscout.clients.searxng_client import SearXNGClient
 from butterscout.config import Settings
 from butterscout.models.requests import SearchRequest
+
 
 @pytest.mark.asyncio
 async def test_searxng_retry_logic_network_error():
