@@ -112,7 +112,8 @@ class ValkeyClient:
         if ttl_seconds is not None:
             if not isinstance(ttl_seconds, int):
                 raise TypeError(
-                    f"ttl_seconds must be an integer, got {type(ttl_seconds).__name__}: {ttl_seconds}"
+                    f"ttl_seconds must be an integer, got "
+                    f"{type(ttl_seconds).__name__}: {ttl_seconds}"
                 )
             if ttl_seconds < 0:
                 raise ValueError(f"ttl_seconds must be non-negative, got {ttl_seconds}")
