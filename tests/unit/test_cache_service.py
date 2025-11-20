@@ -95,3 +95,115 @@ async def test_invalidate_fails_gracefully_when_not_connected(
     # Should return False on error, not raise
     result = await cache_service.invalidate(request)
     assert result is False
+
+
+@pytest.mark.asyncio
+async def test_cache_set_with_valid_ttl_from_string(
+    redis_client: ValkeyClient, settings: Settings
+) -> None:
+    """Test that cache set accepts TTL that Pydantic coerced from string."""
+    from unittest.mock import AsyncMock
+
+    backend = RedisBackend(redis_client)
+    # Mock the client to be "connected"
+    redis_client.valkey = AsyncMock()
+    redis_client.valkey.setex = AsyncMock(return_value=True)
+
+    # Pydantic will coerce "3600" to 3600 int automatically
+    valid_settings = Settings(
+        BS_REDIS_URL="valkey://localhost:6379/1",
+        BS_SEARXNG_URL="http://localhost:8080",
+        BS_CRAWL4AI_URL="http://localhost:11235",
+        BS_CACHE_TTL_SECONDS="3600",  # type: ignore # Will be coerced to int
+    )
+
+    cache_service = CacheService(backend, valid_settings)
+
+    request = SearchRequest(query="test query")
+    response = SearchResponse(
+        query="test query",
+        results=[],
+        metadata=ResponseMetadata(
+            search_time_ms=100,
+            cache_hit=False,
+            sources_queried=["searxng"],
+        ),
+    )
+
+    # Should succeed since Pydantic validates and coerces the type
+    success = await cache_service.set(request, response, "test-123")
+    assert success is True
+
+
+@pytest.mark.asyncio
+async def test_cache_set_rejects_zero_ttl(
+    redis_client: ValkeyClient, settings: Settings
+) -> None:
+    """Test that cache set rejects zero TTL."""
+    from unittest.mock import AsyncMock
+
+    backend = RedisBackend(redis_client)
+    # Mock the client to be "connected"
+    redis_client.valkey = AsyncMock()
+
+    # Create settings with zero TTL
+    zero_ttl_settings = Settings(
+        BS_REDIS_URL="valkey://localhost:6379/1",
+        BS_SEARXNG_URL="http://localhost:8080",
+        BS_CRAWL4AI_URL="http://localhost:11235",
+        BS_CACHE_TTL_SECONDS=0,
+    )
+
+    cache_service = CacheService(backend, zero_ttl_settings)
+
+    request = SearchRequest(query="test query")
+    response = SearchResponse(
+        query="test query",
+        results=[],
+        metadata=ResponseMetadata(
+            search_time_ms=100,
+            cache_hit=False,
+            sources_queried=["searxng"],
+        ),
+    )
+
+    # Should return False on zero TTL, not raise
+    success = await cache_service.set(request, response, "test-123")
+    assert success is False
+
+
+@pytest.mark.asyncio
+async def test_cache_set_rejects_negative_ttl(
+    redis_client: ValkeyClient, settings: Settings
+) -> None:
+    """Test that cache set rejects negative TTL."""
+    from unittest.mock import AsyncMock
+
+    backend = RedisBackend(redis_client)
+    # Mock the client to be "connected"
+    redis_client.valkey = AsyncMock()
+
+    # Create settings with negative TTL
+    negative_ttl_settings = Settings(
+        BS_REDIS_URL="valkey://localhost:6379/1",
+        BS_SEARXNG_URL="http://localhost:8080",
+        BS_CRAWL4AI_URL="http://localhost:11235",
+        BS_CACHE_TTL_SECONDS=-10,
+    )
+
+    cache_service = CacheService(backend, negative_ttl_settings)
+
+    request = SearchRequest(query="test query")
+    response = SearchResponse(
+        query="test query",
+        results=[],
+        metadata=ResponseMetadata(
+            search_time_ms=100,
+            cache_hit=False,
+            sources_queried=["searxng"],
+        ),
+    )
+
+    # Should return False on negative TTL, not raise
+    success = await cache_service.set(request, response, "test-123")
+    assert success is False

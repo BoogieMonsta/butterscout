@@ -21,13 +21,16 @@ class CacheBackend(Protocol):
         """
         ...
 
-    async def set(self, key: str, value: str, ttl: int) -> None:
+    async def set(self, key: str, value: str, ttl: int) -> bool:
         """Set a value in the cache with a TTL.
 
         Args:
             key: Cache key to set
             value: Value to cache
             ttl: Time-to-live in seconds
+
+        Returns:
+            True if operation succeeded
         """
         ...
 
@@ -66,9 +69,13 @@ class RedisBackend:
         """Get a value from Redis cache."""
         return await self.client.get(key)
 
-    async def set(self, key: str, value: str, ttl: int) -> None:
-        """Set a value in Redis cache with TTL."""
-        await self.client.set(key, value, ttl_seconds=ttl)
+    async def set(self, key: str, value: str, ttl: int) -> bool:
+        """Set a value in Redis cache with TTL.
+
+        Returns:
+            True if operation succeeded
+        """
+        return await self.client.set(key, value, ttl_seconds=ttl)
 
     async def delete(self, key: str) -> int:
         """Delete a value from Redis cache."""
@@ -124,12 +131,17 @@ class MemoryBackend:
             await self._cleanup_expired()
             return value
 
-    async def set(self, key: str, value: str, ttl: int) -> None:
-        """Set a value in in-memory cache with TTL."""
+    async def set(self, key: str, value: str, ttl: int) -> bool:
+        """Set a value in in-memory cache with TTL.
+
+        Returns:
+            True if operation succeeded
+        """
         async with self._lock:
             self._store[key] = (value, time.time() + ttl)
             # Opportunistic cleanup of expired entries
             await self._cleanup_expired()
+        return True
 
     async def delete(self, key: str) -> int:
         """Delete a value from in-memory cache."""

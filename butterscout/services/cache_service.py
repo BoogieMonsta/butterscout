@@ -86,26 +86,55 @@ class CacheService:
         """
         cache_key = generate_cache_key(request)
 
+        # Validate TTL configuration
+        ttl_seconds = self.settings.BS_CACHE_TTL_SECONDS
+        if not isinstance(ttl_seconds, int) or ttl_seconds <= 0:
+            logger.warning(
+                "cache_invalid_ttl",
+                request_id=request_id,
+                ttl_seconds=ttl_seconds,
+                ttl_type=type(ttl_seconds).__name__,
+            )
         try:
             # Serialize to JSON using Pydantic's model_dump_json
             response_json = response.model_dump_json()
+
+            # Validate TTL configuration
+            ttl_seconds = self.settings.BS_CACHE_TTL_SECONDS
+            if not isinstance(ttl_seconds, int) or ttl_seconds <= 0:
+                logger.warning(
+                    "cache_invalid_ttl",
+                    request_id=request_id,
+                    ttl_seconds=ttl_seconds,
+                    ttl_type=type(ttl_seconds).__name__,
+                )
+                return False
 
             # Store with TTL
             await self.backend.set(
                 cache_key,
                 response_json,
-                ttl=self.settings.BS_CACHE_TTL_SECONDS,
+                ttl=ttl_seconds,
             )
 
             logger.info(
                 "cache_set",
                 request_id=request_id,
                 cache_key=cache_key[:16] + "...",
-                ttl_seconds=self.settings.BS_CACHE_TTL_SECONDS,
+                ttl_seconds=ttl_seconds,
                 response_size_bytes=len(response_json),
             )
             return True
 
+        except (TypeError, ValueError) as e:
+            logger.error(
+                "cache_set_validation_error",
+                request_id=request_id,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            # Don't fail request on cache errors
+            return False
         except Exception as e:
             logger.error(
                 "cache_set_error",

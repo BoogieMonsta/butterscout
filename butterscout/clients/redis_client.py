@@ -99,6 +99,8 @@ class ValkeyClient:
 
         Raises:
             RuntimeError: If Valkey is not connected
+            TypeError: If ttl_seconds is not an integer
+            ValueError: If ttl_seconds is negative
         """
         if not self.valkey:
             raise RuntimeError(
@@ -106,10 +108,35 @@ class ValkeyClient:
                 "Call 'await client.connect()' before using Valkey operations."
             )
 
-        if ttl_seconds:
-            result: Optional[bool] = await self.valkey.setex(key, ttl_seconds, value)
+        # Validate TTL if provided
+        if ttl_seconds is not None:
+            if not isinstance(ttl_seconds, int):
+                raise TypeError(
+                    f"ttl_seconds must be an integer, got {type(ttl_seconds).__name__}: {ttl_seconds}"
+                )
+            if ttl_seconds < 0:
+                raise ValueError(f"ttl_seconds must be non-negative, got {ttl_seconds}")
+
+        # Use setex for TTL > 0, otherwise use set
+        if ttl_seconds is not None and ttl_seconds > 0:
+            logger.debug("Setting key %s with TTL %d", key, ttl_seconds)
+            try:
+                result: Optional[bool] = await self.valkey.setex(key, ttl_seconds, value)
+            except Exception as e:
+                logger.error(
+                    "Failed to set key %s with TTL %d: %s",
+                    key,
+                    ttl_seconds,
+                    str(e),
+                )
+                raise
         else:
-            result = await self.valkey.set(key, value)
+            logger.debug("Setting key %s without TTL", key)
+            try:
+                result = await self.valkey.set(key, value)
+            except Exception as e:
+                logger.error("Failed to set key %s: %s", key, str(e))
+                raise
         return bool(result)
 
     async def delete(self, key: str) -> int:

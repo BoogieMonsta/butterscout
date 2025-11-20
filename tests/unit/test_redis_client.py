@@ -261,4 +261,70 @@ async def test_ping_when_connected(settings: Settings) -> None:
     client.valkey.ping.assert_called_once()
 
 
+@pytest.mark.asyncio
+async def test_set_with_ttl_zero(settings: Settings) -> None:
+    """Test set operation with TTL=0 (should use set without TTL)."""
+    from unittest.mock import AsyncMock
+
+    client = ValkeyClient(settings)
+    client.valkey = AsyncMock()
+    client.valkey.set = AsyncMock(return_value=True)
+
+    result = await client.set("test:key", "value", ttl_seconds=0)
+
+    assert result is True
+    # Should use set() not setex() when ttl_seconds=0
+    client.valkey.set.assert_called_once_with("test:key", "value")
+
+
+@pytest.mark.asyncio
+async def test_set_with_invalid_ttl_type(settings: Settings) -> None:
+    """Test set operation with invalid TTL type raises TypeError."""
+    from unittest.mock import AsyncMock
+
+    client = ValkeyClient(settings)
+    client.valkey = AsyncMock()
+
+    with pytest.raises(TypeError, match="ttl_seconds must be an integer"):
+        await client.set("test:key", "value", ttl_seconds="60")  # type: ignore
+
+
+@pytest.mark.asyncio
+async def test_set_with_negative_ttl(settings: Settings) -> None:
+    """Test set operation with negative TTL raises ValueError."""
+    from unittest.mock import AsyncMock
+
+    client = ValkeyClient(settings)
+    client.valkey = AsyncMock()
+
+    with pytest.raises(ValueError, match="ttl_seconds must be non-negative"):
+        await client.set("test:key", "value", ttl_seconds=-10)
+
+
+@pytest.mark.asyncio
+async def test_set_with_ttl_handles_setex_error(settings: Settings) -> None:
+    """Test that set with TTL properly handles and re-raises setex errors."""
+    from unittest.mock import AsyncMock
+
+    client = ValkeyClient(settings)
+    client.valkey = AsyncMock()
+    client.valkey.setex = AsyncMock(side_effect=Exception("Redis connection error"))
+
+    with pytest.raises(Exception, match="Redis connection error"):
+        await client.set("test:key", "value", ttl_seconds=60)
+
+
+@pytest.mark.asyncio
+async def test_set_without_ttl_handles_set_error(settings: Settings) -> None:
+    """Test that set without TTL properly handles and re-raises set errors."""
+    from unittest.mock import AsyncMock
+
+    client = ValkeyClient(settings)
+    client.valkey = AsyncMock()
+    client.valkey.set = AsyncMock(side_effect=Exception("Redis connection error"))
+
+    with pytest.raises(Exception, match="Redis connection error"):
+        await client.set("test:key", "value")
+
+
 # Integration tests moved to tests/integration/test_redis_integration.py
