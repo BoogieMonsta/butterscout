@@ -158,12 +158,13 @@ services:
       start_period: 30s
 
   crawl4ai:
-    # TODO: Update with actual Crawl4AI Docker image when available
-    # This is a placeholder - check Crawl4AI docs for official image
+    # Using the official Crawl4AI Docker image
+    # Ref: https://github.com/unclecode/crawl4ai
     image: unclecode/crawl4ai:latest
     container_name: butterscout-crawl4ai
     ports:
       - "11235:11235"
+    shm_size: "2gb"  # Important for browser automation
     networks:
       - butterscout
     restart: unless-stopped
@@ -175,11 +176,16 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
-    # healthcheck:
-    #   test: ["CMD", "curl", "-f", "http://localhost:11235/health"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 3
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    healthcheck:
+      test: ["CMD", "python", "-c", "import http.client; http.client.HTTPConnection('localhost', 11235, timeout=5).connect()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   redis:
     image: redis:7-alpine
@@ -507,8 +513,9 @@ jobs:
 ### Service Dependencies (TECH SPEC §7.1)
 
 - `butterscout-api` depends on: `redis`, `searxng`, `crawl4ai`
-- Use health checks to ensure dependencies are ready
-- Set proper startup order with `depends_on` + `condition`
+- **IMPORTANT**: Use health checks on ALL services to ensure dependencies are ready
+- Set proper startup order with `depends_on` + `condition: service_healthy`
+- Health checks are REQUIRED in both dev and production for proper orchestration
 
 ### Resource Limits (TECH SPEC §7.1)
 
@@ -532,6 +539,22 @@ Total: ~4 vCPUs, ~4GB RAM
 - All services on private `butterscout` bridge network
 - Only API exposed on host (port 8000)
 - Internal ports not exposed (or exposed only in dev)
+
+### File Descriptor Limits (ulimits)
+
+- **REQUIRED for production** and recommended for dev
+- Set `nofile` soft/hard limits to 65535 for all services
+- Critical for services with high concurrency:
+  - `butterscout-api`: FastAPI async connections
+  - `searxng`: Concurrent HTTP requests to search engines
+  - `crawl4ai`: Browser automation (many file descriptors)
+  - `redis`: High connection counts
+
+### Browser Automation Requirements
+
+- **REQUIRED**: Set `shm_size: "2gb"` for crawl4ai service
+- Browser automation (Playwright/Puppeteer) needs shared memory
+- Without sufficient shm_size, browser crashes will occur
 
 ### Volume Persistence
 

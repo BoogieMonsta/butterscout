@@ -1,0 +1,192 @@
+services:
+  butterscout-api:
+    image: sesametech/butterscout:latest
+    container_name: butterscout-api
+    ports:
+      - "8000:8000"
+    environment:
+      # Service URLs
+      BS_SEARXNG_URL: ${BS_SEARXNG_URL:-http://searxng:8080}
+      BS_CRAWL4AI_URL: ${BS_CRAWL4AI_URL:-http://crawl4ai:11235}
+      BS_REDIS_URL: ${BS_REDIS_URL:-redis://redis:6379/0}
+
+      # Authentication (optional)
+      BS_API_KEY: ${BS_API_KEY:-}
+
+      # Cache settings
+      BS_CACHE_TTL_SECONDS: ${BS_CACHE_TTL_SECONDS:-3600}
+
+      # Rate limiting
+      BS_RATE_LIMIT_PER_HOUR: ${BS_RATE_LIMIT_PER_HOUR:-60}
+      BS_API_KEY_RATE_LIMIT_PER_HOUR: ${BS_API_KEY_RATE_LIMIT_PER_HOUR:-600}
+      BS_GLOBAL_RATE_LIMIT_PER_HOUR: ${BS_GLOBAL_RATE_LIMIT_PER_HOUR:-10000}
+
+      # Search settings
+      BS_MAX_RESULTS: ${BS_MAX_RESULTS:-10}
+
+      # Extraction settings
+      BS_MAX_CONCURRENT_EXTRACTIONS: ${BS_MAX_CONCURRENT_EXTRACTIONS:-4}
+      BS_EXTRACTION_TIMEOUT_MS: ${BS_EXTRACTION_TIMEOUT_MS:-2500}
+      BS_FALLBACK_ENABLED: ${BS_FALLBACK_ENABLED:-true}
+      BS_FALLBACK_TIMEOUT_MS: ${BS_FALLBACK_TIMEOUT_MS:-2000}
+      BS_FALLBACK_MAX_WORKERS: ${BS_FALLBACK_MAX_WORKERS:-2}
+      BS_REQUEST_TIMEOUT_MS: ${BS_REQUEST_TIMEOUT_MS:-6000}
+
+      # Observability
+      BS_LOG_LEVEL: ${BS_LOG_LEVEL:-info}
+      BS_ENABLE_METRICS: ${BS_ENABLE_METRICS:-true}
+
+      # Health check
+      BS_HEALTH_TIMEOUT_MS: ${BS_HEALTH_TIMEOUT_MS:-750}
+
+      # Domain filtering
+      BS_ALLOWED_DOMAINS: ${BS_ALLOWED_DOMAINS:-}
+      BS_BLOCKED_DOMAINS: ${BS_BLOCKED_DOMAINS:-}
+
+      # CORS (comma-separated origins)
+      BS_CORS_ORIGINS: ${BS_CORS_ORIGINS:-*}
+
+    depends_on:
+      searxng:
+        condition: service_healthy
+      crawl4ai:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - butterscout-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1536M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: butterscout-searxng
+    entrypoint: ["/etc/searxng/entrypoint.sh"]
+    environment:
+      - BASE_URL=http://searxng:8080/
+      - INSTANCE_NAME=butterscout-searxng
+      # Auto-generates secret if not set (dev fallback)
+      - SEARXNG_SECRET_KEY=${SEARXNG_SECRET_KEY:-}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./searxng-config:/etc/searxng:rw
+      - searxng-data:/var/lib/searxng
+    networks:
+      - butterscout-network
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  crawl4ai:
+    # Using the official Crawl4AI Docker image
+    # Ref: https://github.com/unclecode/crawl4ai
+    image: unclecode/crawl4ai:latest
+    container_name: butterscout-crawl4ai
+    ports:
+      - "11235:11235"
+    shm_size: "2gb"  # Important for browser automation
+    networks:
+      - butterscout-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    # Health check: Try HTTP endpoint first, fallback to TCP port check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import http.client; http.client.HTTPConnection('localhost', 11235, timeout=5).connect()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  redis:
+    image: valkey/valkey:8-alpine
+    container_name: butterscout-redis
+    # Cache-only configuration (intentional)
+    # - No persistence: --save "" --appendonly no
+    # - LRU eviction: Automatically evicts old entries when memory is full
+    # - Rate limits are ephemeral: Reset on container restart (acceptable trade-off)
+    # - Volume mounted for potential persistence if needed in future
+    command:
+      - redis-server
+      - --save ""
+      - --appendonly no
+      - --maxmemory 512mb
+      - --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - butterscout-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+networks:
+  butterscout-network:
+    driver: bridge
+
+volumes:
+  redis_data:
+  searxng-data:

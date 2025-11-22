@@ -386,7 +386,7 @@ Before marking v0.1 complete, ensure:
 ## Support
 
 - **TECH SPEC:** `TECH SPEC.md` - Complete technical specification
-- **ENGINEERING GUIDE:** `ENGINEERING_GUIDE.md` - Development practices
+- **CONTRIBUTING:** `CONTRIBUTING.md` - Contribution guidelines
 - **OpenAPI Spec:** Will be generated at `/openapi.json`
 
 ## Success Metrics
@@ -400,7 +400,3 @@ v0.1 is complete when:
 5. **Infrastructure:** Docker Compose working, health checks passing
 6. **Observability:** Logs structured, metrics exposed
 7. **Validation:** E2E tests passing, release checklist complete
-
-**Estimated completion time:** 2-4 weeks with 1-4 developers
-
-Good luck building Butterscout! 🦋🔍

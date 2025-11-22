@@ -24,9 +24,18 @@ search:
 server:
   port: 8080
   bind_address: "0.0.0.0"
-  # SECURITY: Change this secret in production! Generate with: openssl rand -hex 32
-  # This default value is INSECURE and must be replaced before production deployment
-  secret_key: "butterscout_secret_key_change_me_please_12345"
+  # TEMPLATE FILE - DO NOT EDIT settings.yml directly!
+  #
+  # This placeholder will be replaced by ./scripts/setup-searxng-config.sh
+  # The script generates settings.yml from this template with your actual secret.
+  #
+  # Setup process:
+  #   1. Set SEARXNG_SECRET_KEY in your .env file (generate with: openssl rand -hex 32)
+  #   2. Run: ./scripts/setup-searxng-config.sh
+  #   3. The script creates settings.yml with your secret
+  #
+  # After initial setup, this is automatic - just deploy with docker compose up
+  secret_key: "__SEARXNG_SECRET_KEY__"
   # Disable rate limiter (handled by Butterscout API)
   limiter: false
   # Disable image proxy for better performance

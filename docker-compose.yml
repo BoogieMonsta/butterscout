@@ -57,7 +57,7 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - butterscout
+      - butterscout-network
     restart: unless-stopped
     deploy:
       resources:
@@ -71,21 +71,37 @@ services:
       nofile:
         soft: 65535
         hard: 65535
+    # Explicit healthcheck (also defined in Dockerfile, but here for visibility)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   searxng:
     image: searxng/searxng:latest
     container_name: butterscout-searxng
+    entrypoint: ["/etc/searxng/entrypoint.sh"]
     environment:
       - BASE_URL=http://searxng:8080/
       - INSTANCE_NAME=butterscout-searxng
+      # Auto-generates secret if not set (dev fallback)
+      - SEARXNG_SECRET_KEY=${SEARXNG_SECRET_KEY:-}
     ports:
       - "8080:8080"
     volumes:
       - ./searxng-config:/etc/searxng:rw
       - searxng-data:/var/lib/searxng
     networks:
-      - butterscout
+      - butterscout-network
     restart: unless-stopped
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
     deploy:
       resources:
         limits:
@@ -112,8 +128,9 @@ services:
     container_name: butterscout-crawl4ai
     ports:
       - "11235:11235"
+    shm_size: "2gb"  # Important for browser automation
     networks:
-      - butterscout
+      - butterscout-network
     restart: unless-stopped
     deploy:
       resources:
@@ -136,8 +153,13 @@ services:
       start_period: 40s
 
   redis:
-    image: redis:7.2.4-alpine
+    image: valkey/valkey:8-alpine
     container_name: butterscout-redis
+    # Cache-only configuration (intentional)
+    # - No persistence: --save "" --appendonly no
+    # - LRU eviction: Automatically evicts old entries when memory is full
+    # - Rate limits are ephemeral: Reset on container restart (acceptable trade-off)
+    # - Volume mounted for potential persistence if needed in future
     command:
       - redis-server
       - --save ""
@@ -147,9 +169,9 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - redis-data:/data
+      - redis_data:/data
     networks:
-      - butterscout
+      - butterscout-network
     restart: unless-stopped
     deploy:
       resources:
@@ -166,9 +188,9 @@ services:
       retries: 3
 
 networks:
-  butterscout:
+  butterscout-network:
     driver: bridge
 
 volumes:
-  redis-data:
+  redis_data:
   searxng-data:

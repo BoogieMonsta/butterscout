@@ -136,3 +136,6 @@ dmypy.json
 # Project specific
 *.db
 *.sqlite
+
+# SearXNG configuration (generated from template)
+searxng-config/settings.yml

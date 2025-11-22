@@ -1,6 +1,6 @@
-# Butterscout 🧈
+# Butterscout
 
-**The Open Source Search & Extraction API for LLM Agents.**
+**The Open Source Search & Extraction API for LLM Agents**
 
 Butterscout is a transparent, developer-first alternative to Tavily and Serper. It orchestrates **SearXNG** (for search) and **Crawl4AI** (for extraction) to provide a unified, LLM-ready API for web research.
 
@@ -8,27 +8,20 @@ Butterscout is a transparent, developer-first alternative to Tavily and Serper. 
 
 ## Why Butterscout?
 
-- **Transparent**: No "black box" ranking. See exactly why a page was chosen or skipped.
-- **Configurable**: Tweak CSS selectors, domain filters, and ranking weights.
-- **Privacy-First**: Self-host on your own infrastructure. Keep your data internal.
-- **Cost-Effective**: Run on your own hardware (e.g., Hetzner) and avoid per-request fees.
+- **Transparent**: No "black box" ranking. See exactly why a page was chosen or skipped
+- **Configurable**: Tweak CSS selectors, domain filters, and ranking weights
+- **Privacy-First**: Self-host on your own infrastructure. Keep your data internal
+- **Cost-Effective**: Run on your own hardware (e.g., Hetzner) and avoid per-request fees
 
 ## Features
 
-- **Unified API**: One endpoint for Search + Scrape + Rerank.
-- **Smart Extraction**: Uses `Crawl4AI` to convert messy HTML into clean Markdown.
-- **Rate Limiting**: Built-in Redis-backed rate limiting.
-- **Caching**: Deduplicates requests to save bandwidth and time.
-- **LLM-Ready**: Returns optimized JSON for context windows.
+- **Unified API**: One endpoint for Search + Scrape + Rerank
+- **Smart Extraction**: Uses `Crawl4AI` to convert messy HTML into clean Markdown
+- **Rate Limiting**: Built-in Redis-backed rate limiting
+- **Caching**: Deduplicates requests to save bandwidth and time
+- **LLM-Ready**: Returns optimized JSON for context windows
 
-## Quickstart (Self-Hosted) with Docker Compose
-
-### Prerequisites
-
-- Docker 20.10+
-- Docker Compose 2.0+
-
-### Setup
+## Quickstart (Local Testing)
 
 1. **Clone the repository:**
    ```bash
@@ -36,235 +29,118 @@ Butterscout is a transparent, developer-first alternative to Tavily and Serper. 
    cd butterscout
    ```
 
-2. **Configure environment (optional):**
+2. **Start all services:**
    ```bash
-   cp .env.example .env
-   # Edit .env to set BS_API_KEY and other settings if needed
+   docker compose -f docker-compose.selfhost.yml up -d
    ```
 
-3. **Start all services:**
-   ```bash
-   docker compose up -d
-   ```
-
-   This will start:
-   - `butterscout-api` - Main API server (port 8000)
-   - `butterscout-searxng` - SearXNG meta-search engine (port 8080)
-   - `butterscout-crawl4ai` - Crawl4AI extraction service (port 11235)
-   - `butterscout-redis` - Redis cache and rate limiter (port 6379)
-
-4. **Wait for services to be healthy (~30-60 seconds):**
-   ```bash
-   docker compose ps
-   ```
-
-   All services should show "healthy" or "running" status.
-
-5. **Visit the API documentation:**
+3. **Visit the API documentation:**
    ```
    http://localhost:8000/docs
    ```
 
 ### Testing the API
 
-**Basic search:**
-```bash
-curl -X POST http://localhost:8000/api/v1/search \
-  -H 'Content-Type: application/json' \
-  -d '{"query":"what is retrieval augmented generation","max_results":5}'
-```
-
-**With API key (if configured):**
-```bash
-curl -X POST http://localhost:8000/api/v1/search \
-  -H 'Content-Type: application/json' \
-  -H 'x-api-key: your-api-key-here' \
-  -d '{"query":"what is retrieval augmented generation","max_results":5}'
-```
-
-**Check health:**
+**Health check:**
 ```bash
 curl http://localhost:8000/health
 ```
 
-**View metrics (if enabled):**
+**Metrics (if enabled):**
 ```bash
 curl http://localhost:8000/metrics
 ```
 
-### Managing Services
+## Production Configuration
 
-**View logs:**
+For production deployments, configure via `.env` file:
+
 ```bash
-# All services
-docker compose logs -f
+# Create .env from template
+cp .env.example .env
 
-# Specific service
-docker compose logs -f butterscout-api
-docker compose logs -f searxng
-docker compose logs -f crawl4ai
-docker compose logs -f redis
+# Edit .env and set:
+# - REDIS_PASSWORD=$(openssl rand -base64 32)
+# - SEARXNG_SECRET_KEY=$(openssl rand -hex 32)
+# - BS_API_KEY=$(openssl rand -base64 32)
+# - BS_CORS_ORIGINS=https://yourdomain.com
+# - BS_LOG_LEVEL=warning
+
+# Start services (automatically loads .env)
+docker compose -f docker-compose.selfhost.yml up -d
 ```
 
-**Stop services:**
-```bash
-docker compose down
-```
+See `.env.example` for all available configuration options.
 
-**Stop and remove volumes:**
-```bash
-docker compose down -v
-```
-
-**Restart a specific service:**
-```bash
-docker compose restart butterscout-api
-```
-
-**Rebuild after code changes:**
-```bash
-docker compose up -d --build
-```
-
-### Development Mode
-
-The included `docker-compose.override.yml` enables development mode with:
-- Hot reload for code changes
-- Debug logging
-- All ports exposed for direct access
-
-Simply use `docker compose up` and your changes to `butterscout/` will automatically reload.
-
-### Troubleshooting
-
-**Issue: SearXNG not responding**
-```bash
-docker compose logs searxng
-docker compose restart searxng
-```
-
-**Issue: Crawl4AI connection refused**
-```bash
-# Check if service is running
-docker compose ps crawl4ai
-
-# Check logs
-docker compose logs crawl4ai
-
-# Restart service
-docker compose restart crawl4ai
-```
-
-**Issue: Redis connection error**
-```bash
-# Test Redis connectivity
-docker compose exec redis redis-cli ping
-# Should return: PONG
-
-# Check Redis logs
-docker compose logs redis
-```
-
-**Issue: API not starting**
-```bash
-# Check API logs
-docker compose logs butterscout-api
-
-# Check if dependencies are healthy
-docker compose ps
-
-# Restart API
-docker compose restart butterscout-api
-```
-
-**Issue: Port already in use**
-```bash
-# Find what's using the port (e.g., 8000)
-lsof -i :8000
-
-# Either stop the conflicting service or change the port in docker-compose.yml
-```
-
-### Resource Usage
-
-Expected resource usage at idle:
-- API: ~200-500MB RAM
-- SearXNG: ~100-300MB RAM
-- Crawl4AI: ~200-400MB RAM
-- Redis: ~50-100MB RAM
-
-Total: ~0.5-1.3GB RAM, 1-2 CPU cores under load
-
-### Production Deployment
-
-For production deployment:
-
-1. **Set a strong API key:**
-   ```bash
-   export BS_API_KEY=$(openssl rand -base64 32)
-   echo "BS_API_KEY=$BS_API_KEY" >> .env
-   ```
-
-2. **Update SearXNG secret:**
-   ```bash
-   # Generate a new secret
-   openssl rand -hex 32
-   # Edit searxng-config/settings.yml and replace the secret_key
-   ```
-
-3. **Configure CORS origins:**
-   ```bash
-   echo "BS_CORS_ORIGINS=https://yourdomain.com" >> .env
-   ```
-
-4. **Validate production configuration:**
-   ```bash
-   ./scripts/validate-production.sh
-   ```
-   This checks for common security issues before deployment.
-
-5. **Use production compose file:**
-   ```bash
-   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-   ```
-   (This skips the development overrides)
-
-### Defaults & Limits (v0.1)
+## Defaults & Limits
 - `max_results`: default 10, max 25
 - Timeouts: SearXNG 2s (+1 retry), Crawl4AI 2.5s, fallback 2s, request budget 6s
 - Rate limits: 60 req/hr per IP; 600 req/hr per API key; optional global 10k/hr
 - Extraction concurrency: 4 URLs per request
 - Cache TTL: 1h
 
-## Clients (snippets)
-- **cURL:** see above
-- **Python (httpx):**
-  ```python
-  import httpx, os
+## Usage Examples
 
-  api_key = os.getenv("BS_API_KEY")
-  headers = {"x-api-key": api_key} if api_key else {}
+> **Note:** Replace `localhost:8000` with your deployment URL in production.
 
-  resp = httpx.post(
-      "http://localhost:8000/api/v1/search",
-      json={"query": "latest llama3 news", "max_results": 5},
-      headers=headers,
-      timeout=10,
-  )
-  resp.raise_for_status()
-  print(resp.json())
-  ```
+### cURL (basic)
+```bash
+curl -X POST http://localhost:8000/api/v1/search \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"latest llama3 news","max_results":5}'
+```
+
+### cURL (with API key)
+```bash
+curl -X POST http://localhost:8000/api/v1/search \
+  -H 'Content-Type: application/json' \
+  -H 'x-api-key: your-api-key-here' \
+  -d '{"query":"latest llama3 news","max_results":5}'
+```
+
+### Python (httpx)
+```python
+import httpx, os
+
+api_key = os.getenv("BS_API_KEY")
+headers = {"x-api-key": api_key} if api_key else {}
+
+resp = httpx.post(
+    "http://localhost:8000/api/v1/search",
+    json={"query": "latest llama3 news", "max_results": 5},
+    headers=headers,
+    timeout=10,
+)
+resp.raise_for_status()
+print(resp.json())
+```
+
+### TypeScript (fetch)
+```typescript
+const apiKey = process.env.BS_API_KEY;
+const headers: Record<string, string> = {
+  "Content-Type": "application/json",
+};
+if (apiKey) headers["x-api-key"] = apiKey;
+
+const response = await fetch("http://localhost:8000/api/v1/search", {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    query: "latest llama3 news",
+    max_results: 5,
+  }),
+});
+
+if (!response.ok) throw new Error(`HTTP ${response.status}`);
+const data = await response.json();
+console.log(data);
+```
 
 ## Documentation
 
-- **[DOCKER.md](DOCKER.md)** - Complete Docker and Docker Compose guide
-- **[TECH SPEC.md](TECH%20SPEC.md)** - Product and operations specifications
-- **[ENGINEERING_GUIDE.md](ENGINEERING_GUIDE.md)** - Development process and quality standards
 - **[openapi.yaml](openapi.yaml)** - OpenAPI specification
 - **API Docs** - http://localhost:8000/docs (when running)
-
-## Development
-
-- CI: Lint, type check, tests, OpenAPI validation (`.github/workflows/ci.yml`)
-- Recommended local stack: Docker Compose (API + SearXNG + Crawl4AI + Redis)
-- See **[DOCKER.md](DOCKER.md)** for detailed setup and configuration
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Development setup and contribution guidelines
+- **[TECH SPEC.md](TECH%20SPEC.md)** - Product and operations specifications
+- **[deployment/](deployment/)** - Maintainer deployment (CI/CD, production configs)
