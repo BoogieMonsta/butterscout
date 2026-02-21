@@ -96,15 +96,23 @@ It exposes a single `POST /api/v1/search` endpoint that accepts a query, searche
 
 At that time, Tavily was proprietary, Perplexica existed but was a full Perplexity clone (not an API), and there wasn't a clean open-source "search API for agents" option. Your positioning was sound.
 
+### BREAKING: Tavily acquired for $275M (Feb 10, 2026)
+
+**This is the single most important market signal.** Eleven days ago, Nebius (an AI cloud platform) acquired Tavily for $275 million (up to $400M with earnouts). Tavily is barely 2 years old as a commercial product, has 3 million monthly SDK downloads, and 1M+ developers. This changes the strategic picture in several ways:
+
+1. **Market validation is extreme.** $275M for an AI search API proves the category is worth building in.
+2. **Platform risk for Tavily users.** Tavily is now part of Nebius's AI cloud. Will the API stay independent? Will pricing change? Will it become Azure-style locked-in? Developers who built on Tavily now face uncertainty.
+3. **The "open source Tavily" pitch just got stronger.** When a tool you depend on gets acquired, the #1 concern is lock-in. Open-source alternatives become more attractive the moment an acquisition happens.
+
 ### What's changed (Feb 2026)
 
 The landscape has shifted substantially:
 
 | Competitor | Type | Key Differentiator |
 |-----------|------|-------------------|
-| **Tavily** | SaaS, $25M raised | Now has ultra-fast search, agent skills, domain governance, /research endpoint. 1,000 free queries/mo. |
+| **Tavily** | Acquired by Nebius for $275M | Ultra-fast search, agent skills, domain governance, /research endpoint. Now part of Nebius AI cloud. |
 | **UnSearch** | Open source (Apache 2.0), SaaS | Tavily-compatible drop-in replacement. Self-hostable via Docker. 5,000 free queries/mo. Claims sub-300ms. |
-| **Firecrawl** | Open source + SaaS | /agent endpoint for autonomous multi-step research. Full crawling. |
+| **Firecrawl** | Open source + SaaS | /agent endpoint for autonomous multi-step research. Full crawling. Extraction-first, not search-first. |
 | **Exa.ai** | SaaS, $17M raised | Neural/semantic search with embeddings. Unique index. |
 | **Perplexity Sonar API** | SaaS | Answer engine with citations. |
 | **Parallel AI** | SaaS, $100M raised | Claims best HLE benchmark scores. |
@@ -121,29 +129,50 @@ UnSearch is architecturally almost identical to Butterscout -- it's an open-sour
 - **Hosted tier** at $0.0003/query (96% cheaper than Tavily)
 - **Marketing and positioning** are already established
 
+However, UnSearch's GitHub presence is unclear -- there's an archived `unsearchapp/unsearch` repo (Sep 2024) and the active product at unsearch.dev may be more commercial than truly community-driven open source.
+
 ### Microsoft Bing API shutdown (Aug 2025)
 
 Microsoft shut down Bing Search APIs on August 11, 2025, pushing everyone toward Azure AI Agents. This actually *increased* the value of SearXNG-based solutions since they don't depend on any single search provider.
+
+### Key tailwinds you didn't have 3 months ago
+
+1. **Tavily acquisition = platform risk.** Developers actively looking for alternatives right now.
+2. **Bing API retirement.** Created a supply vacuum for affordable search APIs.
+3. **MCP protocol explosion.** New integration surface that didn't exist when you built this.
+4. **AI agent market growing at 43.88% CAGR** ($5.4B in 2024 to projected $139B by 2033).
 
 ---
 
 ## 5. Honest Relevance Assessment
 
-### Is the problem still real? YES.
+### Is the problem still real? YES -- more than ever.
 
-AI agents need web search. The agentic AI market is exploding. Tavily raised $25M specifically because this problem is worth solving. The Bing shutdown made self-hostable alternatives more valuable, not less.
+A $275M acquisition validates this category beyond any doubt. AI agents need web search. The agentic AI market is growing at 44% CAGR. The Bing shutdown created a supply vacuum. Every signal says this market is real and growing.
 
-### Is Butterscout still the right vehicle? MAYBE NOT, in its current form.
+### Is Butterscout still the right vehicle? MORE VIABLE THAN 3 MONTHS AGO, but needs repositioning.
 
-Here's the uncomfortable truth:
+The Tavily acquisition changes the calculus significantly. Here's the updated picture:
 
-1. **UnSearch already occupies your exact niche** with better positioning (Apache 2.0 license, Tavily-compatible API, existing SDKs, hosted option). If someone Googles "open source Tavily alternative" today, they find UnSearch, not Butterscout.
+**Arguments FOR continuing:**
 
-2. **You're 3 months behind the competition** with no community, no SDKs, no hosted tier, and a more restrictive license.
+1. **Tavily's acquisition creates a window of opportunity.** Developers are actively evaluating alternatives right now. "Open-source Tavily alternative" has never been a more compelling pitch than the week after Tavily gets acquired by a cloud platform.
 
-3. **Your v0.2 roadmap (LLM re-ranking, embeddings)** is exactly where everyone is already headed. Tavily has it. Exa built their whole product around it. You'd be implementing table-stakes features, not differentiators.
+2. **UnSearch's open-source status is unclear.** The original `unsearchapp/unsearch` repo on GitHub was archived in Sep 2024. The active product at unsearch.dev may be more commercial SaaS than genuine community open-source. If butterscout is truly open-source end-to-end, that's a real differentiator.
 
-4. **The AGPLv3 license is a significant headwind.** Companies building AI agents are wary of AGPL's copyleft requirements. Apache 2.0 or MIT would dramatically increase adoption potential.
+3. **No dominant open-source player exists in "search + extract API for agents."** Firecrawl is extraction-first. Perplexica is a UI, not an API. SearXNG alone has no extraction. Butterscout genuinely fills a gap.
+
+4. **Your code is production-quality.** This isn't a weekend hack that needs 6 months of polish. The MVP is done and well-engineered.
+
+**Arguments AGAINST continuing (still real):**
+
+1. **You're still 3 months behind** with no community, no SDKs, no hosted tier.
+
+2. **The AGPLv3 license is a significant headwind.** Companies building AI agents are wary of AGPL's copyleft requirements. Apache 2.0 or MIT would dramatically increase adoption potential.
+
+3. **Your v0.2 roadmap (LLM re-ranking, embeddings)** is table-stakes, not differentiating.
+
+4. **Solo maintainer risk.** This space moves fast. Can you keep up alone?
 
 ---
 
@@ -167,9 +196,18 @@ Here's the uncomfortable truth:
 3. **Managed deployment**: Offer one-click deploy to customer's own cloud
    - More defensible, but requires significant DevOps tooling investment.
 
+### The Tavily acquisition angle
+
+Post-acquisition, Tavily's pricing and direction are uncertain. Developers evaluating alternatives right now would pay for:
+- **Guaranteed independence** (not getting acquired/sunset)
+- **Self-hosted option** (data sovereignty, GDPR/HIPAA compliance)
+- **Predictable costs** (VPS cost vs per-query pricing that could change)
+
+A small hosted tier ($19-29/mo for generous limits) positioned as "the independent alternative" could work -- but only if you move fast while the acquisition news is fresh.
+
 ### Bottom line on monetization
 
-Running a hosted API competing with Tavily ($25M funded) and UnSearch (already cheaper) is not a viable solo-operator business. The unit economics don't work unless you have a genuine technical differentiator that justifies premium pricing.
+A pure commodity API competing head-to-head on price is not viable. But a **self-hosted-first product with an optional hosted tier** for convenience, positioned against Tavily's acquisition uncertainty, has a narrow but real window. The key is speed and differentiation (MCP, Tavily-compatible API, SDKs).
 
 ---
 
@@ -219,8 +257,24 @@ If you believe in the mission but don't want to compete from behind, contributin
 | Test coverage | 8/10 | 291 tests, good structure |
 | DevOps/deployment | 7/10 | CI/CD exists but deploy.yml has issues |
 | Documentation | 7/10 | Good tech spec but no user-facing docs beyond README |
-| Market positioning | 3/10 | Niche is occupied by better-funded or better-positioned competitors |
-| Monetization potential | 2/10 | Commodity API in a price war with VC-backed competitors |
-| Differentiation | 2/10 | No unique technical advantage over UnSearch or Tavily |
+| Market positioning | 4/10 | Tavily acquisition creates an opening, but you need to move fast |
+| Monetization potential | 3/10 | Narrow window post-Tavily-acquisition; needs differentiation |
+| Differentiation | 3/10 | Genuinely open-source end-to-end is rarer than it seems; needs MCP + SDKs |
 
-**The code is good. The product is solid. The market timing is the problem.** You built the right thing, but others got there first with more resources. Your path forward requires either finding a genuine differentiator (MCP, vertical search, local-first) or honestly assessing whether your time is better spent elsewhere.
+**The code is good. The product is solid. The market timing was bad 3 months ago but just got better.** The Tavily acquisition ($275M, Feb 10 2026) validates the category and creates platform-risk anxiety among its 1M+ developers. You have a narrow window to capture developers looking for open-source alternatives -- but only if you move fast on MCP, SDKs, Tavily-compatible API, and license change. Without those, the window closes.
+
+---
+
+## 10. Sources
+
+- [Nebius acquires Tavily for $275M (Bloomberg)](https://www.bloomberg.com/news/articles/2026-02-10/nebius-agrees-to-buy-ai-agent-search-company-tavily-for-275-million)
+- [Tavily deal up to $400M with earnouts (Calcalist)](https://www.calcalistech.com/ctechnews/article/r168bhodbe)
+- [Tavily raises $25M Series A (TechCrunch)](https://techcrunch.com/2025/08/06/tavily-raises-25m-to-connect-ai-agents-to-the-web/)
+- [Tavily January 2026 updates](https://www.tavily.com/blog/what-tavily-shipped-in-january-26)
+- [Tavily pricing](https://docs.tavily.com/documentation/api-credits)
+- [UnSearch](https://unsearch.dev/)
+- [Beyond Tavily - AI Search APIs Guide](https://websearchapi.ai/blog/tavily-alternatives)
+- [Best Web Search APIs 2026 (Firecrawl)](https://www.firecrawl.dev/blog/best-web-search-apis)
+- [7 Free Web Search APIs for AI Agents (KDnuggets)](https://www.kdnuggets.com/7-free-web-search-apis-for-ai-agents)
+- [Bing Search API retirement (Microsoft)](https://learn.microsoft.com/en-us/lifecycle/announcements/bing-search-api-retirement)
+- [Bing API retirement cost impact (PPC Land)](https://ppc.land/microsoft-ends-bing-search-apis-on-august-11-alternative-costs-40-483-more/)
