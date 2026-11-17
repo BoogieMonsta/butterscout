@@ -290,8 +290,13 @@ class SearchService:
             ),
         )
 
-        # 12. Cache Response
-        await self.cache_service.set(request_body, response, request_id)
+        # 12. Cache Response. Zero results almost always means the engines were blocked,
+        # suspended or timed out, not that the web has nothing; caching it would serve that
+        # failure for the whole TTL. Retrying costs one more SearXNG call.
+        if ranked_results:
+            await self.cache_service.set(request_body, response, request_id)
+        else:
+            logger.info("search_cache_skipped_empty", request_id=request_id)
 
         logger.info(
             "search_request_complete",

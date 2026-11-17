@@ -468,3 +468,32 @@ async def test_search_drops_private_result_urls(mock_app_state: MagicMock) -> No
     assert response.status_code == 200
     returned = sorted(r["url"] for r in response.json()["results"])
     assert returned == ["https://example.com/ok", "https://example.org/also-ok"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("result_count", "cached"), [(0, False), (1, True)])
+async def test_search_caches_only_non_empty_responses(
+    mock_app_state: MagicMock, result_count: int, cached: bool
+) -> None:
+    """An empty result (engines blocked or timed out) must not be pinned for the cache TTL."""
+    from butterscout.main import app
+
+    mock_app_state.searxng_client.search = AsyncMock(
+        return_value=[
+            NormalizedSearchResult(
+                title="R", url=HttpUrl("https://example.com/"), snippet="s", score=1.0
+            )
+        ][:result_count]
+    )
+
+    with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
+        mock_limiter = mock_limiter_class.return_value
+        mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 59, 60, 1234567890))
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.post(
+            "/api/v1/search", json={"query": "test query", "include_content": False}
+        )
+
+    assert response.status_code == 200
+    assert len(response.json()["results"]) == result_count
+    assert mock_app_state.cache_service.set.await_count == (1 if cached else 0)
