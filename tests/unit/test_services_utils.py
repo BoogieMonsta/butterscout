@@ -150,3 +150,13 @@ def test_cache_key_format() -> None:
     hash_part = key.replace("bs:cache:", "")
     assert len(hash_part) == 64
     assert all(c in "0123456789abcdef" for c in hash_part)
+
+
+def test_domain_filter_normalizes_host() -> None:
+    from butterscout.utils.domain_filter import is_domain_allowed
+
+    assert not is_domain_allowed("https://example.com./x", [], ["example.com"])
+    assert not is_domain_allowed("https://user@example.com/x", [], ["example.com"])
+    assert not is_domain_allowed("https://EXAMPLE.com:8443/x", [], ["example.com."])
+    assert is_domain_allowed("https://docs.example.com./x", ["example.com"], [])
+    assert not is_domain_allowed("not-a-valid-url", [], [])

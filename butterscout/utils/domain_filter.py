@@ -21,15 +21,13 @@ def is_domain_allowed(
     """
     try:
         parsed = urlparse(url)
-        domain = parsed.netloc.lower()
+        # .hostname drops userinfo and port and lowercases; strip the DNS root dot so
+        # "example.com." cannot slip past a block on "example.com".
+        domain = (parsed.hostname or "").rstrip(".")
 
-        # If no netloc (invalid URL like "not-a-valid-url"), block it
+        # If no host (invalid URL like "not-a-valid-url"), block it
         if not domain:
             return False
-
-        # Strip port if present
-        if ":" in domain:
-            domain = domain.split(":")[0]
 
         # Remove www. prefix for comparison
         if domain.startswith("www."):
@@ -40,7 +38,7 @@ def is_domain_allowed(
             for blocked in blocked_domains:
                 if not blocked:  # Skip empty strings
                     continue
-                blocked_clean = blocked.lower().removeprefix("www.")
+                blocked_clean = blocked.lower().removeprefix("www.").rstrip(".")
                 # Strip port from blocked domain too
                 if ":" in blocked_clean:
                     blocked_clean = blocked_clean.split(":")[0]
@@ -54,7 +52,7 @@ def is_domain_allowed(
                 if not allowed:  # Skip empty strings
                     continue
                 has_valid_allowed = True
-                allowed_clean = allowed.lower().removeprefix("www.")
+                allowed_clean = allowed.lower().removeprefix("www.").rstrip(".")
                 # Strip port from allowed domain too
                 if ":" in allowed_clean:
                     allowed_clean = allowed_clean.split(":")[0]

@@ -63,10 +63,13 @@ async def extract_url(
     if not result.extraction_ok or not result.content.strip():
         if request_state is not None and hasattr(request_state, "error_code"):
             request_state.error_code = "UPSTREAM_ERROR"
+        is_timeout = (result.error or "").lower() == "timeout"
+        # Raw extractor errors can carry internal service URLs; log them, don't return them.
+        logger.warning("extract_failed", request_id=request_id, url=url, error=result.error)
         raise UpstreamProviderError(
-            result.error or "Content extraction failed",
+            "timeout" if is_timeout else "Content extraction failed",
             component="extract",
-            is_timeout=(result.error or "").lower() == "timeout",
+            is_timeout=is_timeout,
             headers=headers,
         )
 

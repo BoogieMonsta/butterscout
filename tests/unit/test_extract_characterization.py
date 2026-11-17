@@ -184,3 +184,42 @@ def test_upstream_failure_is_502_envelope(extract_env: MagicMock) -> None:
     assert body["error"]["message"] == "timeout"
     assert body["error"]["details"] == {"component": "extract", "timeout": True}
     assert response.headers["X-RateLimit-Limit"] == "60"
+
+
+# Intentional addition (not characterization): Authorization: Bearer is accepted too.
+def test_bearer_key_is_accepted(extract_env: MagicMock) -> None:
+    with patch.object(app_state, "settings", _settings(BS_API_KEY="secret")):
+        response = _post({"url": PUBLIC_URL}, headers={"Authorization": "Bearer secret"})
+    assert response.status_code == 200
+
+
+def test_wrong_bearer_key_is_401(extract_env: MagicMock) -> None:
+    with patch.object(app_state, "settings", _settings(BS_API_KEY="secret")):
+        response = _post({"url": PUBLIC_URL}, headers={"Authorization": "Bearer nope"})
+    assert response.status_code == 401
+
+
+# Intentional change: raw extractor errors are logged, not returned.
+def test_upstream_error_detail_is_not_leaked(extract_env: MagicMock) -> None:
+    extract_env.extract.return_value = ExtractedContent(
+        url=HttpUrl(PUBLIC_URL),
+        content="",
+        word_count=0,
+        extracted_by="none",
+        extraction_ok=False,
+        extraction_time_ms=5,
+        error="Server error '500 Internal Server Error' for url 'http://crawl4ai:11235/md'",
+    )
+    response = _post({"url": PUBLIC_URL})
+    assert response.status_code == 502
+    assert response.json()["error"]["message"] == "Content extraction failed"
+    assert "crawl4ai:11235" not in response.text
+
+
+# Intentional change: trailing-dot and userinfo hosts can't dodge the block list.
+@pytest.mark.parametrize("url", ["https://93.184.216.34./page"])
+def test_blocked_domain_trailing_dot(extract_env: MagicMock, url: str) -> None:
+    with patch.object(app_state, "settings", _settings(BS_BLOCKED_DOMAINS="93.184.216.34")):
+        response = _post({"url": url})
+    assert response.status_code in (400, 403)
+    extract_env.extract.assert_not_called()
