@@ -12,7 +12,7 @@ from butterscout.models.requests import SearchRequest
 from butterscout.models.responses import SearchResponse
 from butterscout.services.search_service import SearchService
 from butterscout.state import app_state
-from butterscout.utils.request_helpers import get_client_ip
+from butterscout.utils.request_helpers import get_client_ip, resolve_api_key
 
 logger = structlog.get_logger()
 
@@ -23,7 +23,9 @@ router = APIRouter(tags=["search"])
 async def search(
     request_body: SearchRequest,
     request: Request,
-    x_api_key: Optional[str] = Header(None, alias="x-api-key"),
+    # Declared for the generated API docs; the key is read by resolve_api_key, which
+    # also accepts "Authorization: Bearer <key>".
+    _x_api_key: Optional[str] = Header(None, alias="x-api-key"),
 ) -> JSONResponse:
     """
     Main search endpoint
@@ -55,7 +57,7 @@ async def search(
         request_body=request_body,
         request_id=request_id,
         client_ip=client_ip,
-        api_key=x_api_key,
+        api_key=resolve_api_key(request.headers),
         request_state=request.state,
     )
 

@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from butterscout.models.requests import ExtractRequest
 from butterscout.models.responses import ExtractResponse
 from butterscout.services.extract_service import extract_url
-from butterscout.utils.request_helpers import get_client_ip
+from butterscout.utils.request_helpers import get_client_ip, resolve_api_key
 
 router = APIRouter(tags=["extract"])
 
@@ -19,13 +19,15 @@ router = APIRouter(tags=["extract"])
 async def extract(
     request_body: ExtractRequest,
     request: Request,
-    x_api_key: Optional[str] = Header(None, alias="x-api-key"),
+    # Declared for the generated API docs; the key is read by resolve_api_key, which
+    # also accepts "Authorization: Bearer <key>".
+    _x_api_key: Optional[str] = Header(None, alias="x-api-key"),
 ) -> JSONResponse:
     """Extract clean content from one public URL without running a search first."""
     response, headers = await extract_url(
         request_body,
         client_ip=get_client_ip(request),
-        api_key=x_api_key,
+        api_key=resolve_api_key(request.headers),
         request_id=getattr(request.state, "request_id", "unknown"),
         request_state=request.state,
     )

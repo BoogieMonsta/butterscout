@@ -42,7 +42,11 @@ from butterscout.services.metrics import metrics_service
 from butterscout.state import app_state
 from butterscout.utils.logging import configure_logging
 from butterscout.utils.privacy import hash_api_key, hash_client_ip
-from butterscout.utils.request_helpers import get_client_ip, get_normalized_endpoint
+from butterscout.utils.request_helpers import (
+    get_client_ip,
+    get_normalized_endpoint,
+    resolve_api_key,
+)
 
 __all__ = ["app", "app_state"]
 
@@ -237,7 +241,7 @@ async def request_id_middleware(
     request.state.start_time = time.perf_counter()
 
     client_ip = get_client_ip(request)
-    api_key = request.headers.get("x-api-key")
+    api_key = resolve_api_key(request.headers)
 
     client_ip_hash = hash_client_ip(client_ip)
     api_key_hash = hash_api_key(api_key) if api_key else "none"

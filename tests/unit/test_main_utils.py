@@ -168,3 +168,14 @@ async def test_uptime_updater() -> None:
 
         # Should have called update_uptime at least once (called before first sleep)
         assert mock_update.call_count >= 1
+
+
+def test_resolve_api_key_prefers_x_api_key_then_bearer() -> None:
+    from butterscout.utils.request_helpers import resolve_api_key
+
+    assert resolve_api_key({"x-api-key": "a", "authorization": "Bearer b"}) == "a"
+    assert resolve_api_key({"authorization": "Bearer b"}) == "b"
+    assert resolve_api_key({"authorization": "bearer  b "}) == "b"
+    assert resolve_api_key({"authorization": "Basic b"}) is None
+    assert resolve_api_key({"authorization": "Bearer "}) is None
+    assert resolve_api_key({}) is None

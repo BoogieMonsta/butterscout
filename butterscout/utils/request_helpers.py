@@ -2,7 +2,25 @@
 
 from __future__ import annotations
 
+from typing import Mapping, Optional
+
 from fastapi import Request
+
+
+def resolve_api_key(headers: Mapping[str, str]) -> Optional[str]:
+    """Return the API key from ``x-api-key`` or, failing that, ``Authorization: Bearer``.
+
+    Bearer support lets MCP clients that only know bearer tokens (e.g. Codex's
+    ``--bearer-token-env-var``) authenticate the same way as REST clients.
+    """
+    key = headers.get("x-api-key")
+    if key:
+        return key
+    authorization = headers.get("authorization", "")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() == "bearer" and token.strip():
+        return token.strip()
+    return None
 
 
 def get_client_ip(request: Request) -> str:
