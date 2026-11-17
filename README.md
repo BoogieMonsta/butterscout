@@ -82,7 +82,28 @@ See `.env.example` for all available configuration options.
 - Timeouts: SearXNG 2s (+1 retry), Crawl4AI 2.5s, fallback 2s, request budget 6s
 - Rate limits: 60 req/hr per IP; 600 req/hr per API key; optional global 10k/hr
 - Extraction concurrency: 4 URLs per request
-- Cache TTL: 1h
+- Cache TTL: 1h (searches with zero results are not cached)
+
+### When search returns nothing or junk
+
+SearXNG scrapes public engines, so results depend on the engine code being current and on the
+engines tolerating your IP. From one IP, engines regularly get rate-limited or CAPTCHA'd and
+SearXNG suspends them for minutes to a day. The template enables Google, Google CSE,
+DuckDuckGo, Brave and Yahoo so results survive any one of them dropping out; Bing is off
+because it returns unrelated pages for technical queries.
+
+To see which engines are failing right now:
+
+```bash
+curl -s "http://127.0.0.1:8080/search?q=test&format=json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["unresponsive_engines"])'
+```
+
+Engines break when the sites change their pages, so update SearXNG first (this also clears
+suspensions):
+
+```bash
+docker compose pull searxng && docker compose up -d searxng
+```
 
 ## Performance
 

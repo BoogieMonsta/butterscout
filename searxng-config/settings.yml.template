@@ -56,19 +56,27 @@ ui:
 # You can customize this based on your needs
 
 engines:
-  # Keep default engines enabled
-  # Major search engines that work without API keys
+  # Web engines that work without API keys. A single IP gets rate-limited or
+  # CAPTCHA'd by some of these from time to time (SearXNG then suspends that
+  # engine for a while), so keep several on: results survive any one dropping out.
+  # Checked 2026-11-17 on SearXNG 2026.11.17: top-5 relevance 30/30 with this set.
   - name: google
     disabled: false
-  - name: bing
+  - name: google cse
     disabled: false
   - name: duckduckgo
     disabled: false
+  - name: brave
+    disabled: false
+  - name: yahoo
+    disabled: false
+  # Bing answers with unrelated pages (shops, medical articles) for technical
+  # queries and they outrank real results in the merge. Off until that changes.
+  - name: bing
+    disabled: true
 
   # Disable engines that require API keys or are unreliable
   - name: wikipedia
-    disabled: true
-  - name: reddit
     disabled: true
   - name: github
     disabled: true
