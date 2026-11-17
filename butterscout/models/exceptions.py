@@ -51,3 +51,11 @@ class UnauthorizedError(ButterscoutError):
 
     def __init__(self, message: str, headers: dict[str, str] | None = None):
         super().__init__(message, headers)
+
+
+class InvalidUrlError(ButterscoutError):
+    """Raised when a URL to fetch is not a plain public http(s) URL (HTTP 400)."""
+
+
+class DomainNotAllowedError(ButterscoutError):
+    """Raised when a URL's domain is excluded by the allow/block lists (HTTP 403)."""

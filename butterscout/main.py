@@ -29,6 +29,8 @@ from butterscout.clients.trafilatura_client import TrafilaturaClient
 from butterscout.config import load_settings
 from butterscout.middleware.security_headers import add_security_headers
 from butterscout.models.exceptions import (
+    DomainNotAllowedError,
+    InvalidUrlError,
     MaxResultsExceededError,
     RateLimitExceededError,
     UnauthorizedError,
@@ -444,6 +446,19 @@ async def upstream_error_handler(request: Request, exc: UpstreamProviderError) -
         },
         headers=exc.headers,
     )
+
+
+@app.exception_handler(InvalidUrlError)
+async def invalid_url_handler(request: Request, exc: InvalidUrlError) -> JSONResponse:
+    # Same body shape the extract endpoint returned via HTTPException.
+    return JSONResponse(status_code=400, content={"detail": exc.message}, headers=exc.headers)
+
+
+@app.exception_handler(DomainNotAllowedError)
+async def domain_not_allowed_handler(
+    request: Request, exc: DomainNotAllowedError
+) -> JSONResponse:
+    return JSONResponse(status_code=403, content={"detail": exc.message}, headers=exc.headers)
 
 
 # Include routers

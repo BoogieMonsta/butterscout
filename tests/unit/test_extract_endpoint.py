@@ -15,7 +15,7 @@ from butterscout.models.internal import ExtractedContent
 @pytest.fixture
 def mock_extract_state() -> Generator[MagicMock, None, None]:
     """Mock app_state for extract endpoint tests."""
-    with patch("butterscout.routers.extract.app_state") as mock_state:
+    with patch("butterscout.services.extract_service.app_state") as mock_state:
         mock_state.settings = MagicMock()
         mock_state.settings.BS_API_KEY = None
         mock_state.settings.BS_RATE_LIMIT_PER_HOUR = 60
@@ -44,7 +44,7 @@ async def test_extract_reads_one_public_url(mock_extract_state: MagicMock) -> No
         )
     )
 
-    with patch("butterscout.routers.extract.RateLimiter") as mock_limiter_class:
+    with patch("butterscout.services.extract_service.RateLimiter") as mock_limiter_class:
         mock_limiter = mock_limiter_class.return_value
         mock_limiter.check_rate_limit = AsyncMock(
             return_value=(True, None, 59, 60, 1234567890)
@@ -69,7 +69,7 @@ async def test_extract_reads_one_public_url(mock_extract_state: MagicMock) -> No
 async def test_extract_blocks_private_urls(mock_extract_state: MagicMock) -> None:
     from butterscout.main import app
 
-    with patch("butterscout.routers.extract.RateLimiter") as mock_limiter_class:
+    with patch("butterscout.services.extract_service.RateLimiter") as mock_limiter_class:
         mock_limiter = mock_limiter_class.return_value
         mock_limiter.check_rate_limit = AsyncMock(
             return_value=(True, None, 59, 60, 1234567890)
@@ -90,7 +90,7 @@ async def test_extract_requires_api_key_when_configured(
 
     mock_extract_state.settings.BS_API_KEY = "secret"
 
-    with patch("butterscout.routers.extract.RateLimiter") as mock_limiter_class:
+    with patch("butterscout.services.extract_service.RateLimiter") as mock_limiter_class:
         mock_limiter = mock_limiter_class.return_value
         mock_limiter.check_rate_limit = AsyncMock(
             return_value=(True, None, 59, 60, 1234567890)
