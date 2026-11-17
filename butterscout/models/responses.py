@@ -12,7 +12,9 @@ class ResultMetadata(BaseModel):
     word_count: Optional[int] = None
     extracted_by: Literal["crawl4ai", "trafilatura", "none"]
     extraction_ok: bool
-    extraction_error: Optional[Literal["timeout", "network_error", "parse_error", "blocked"]] = None
+    extraction_error: Optional[
+        Literal["timeout", "network_error", "parse_error", "blocked"]
+    ] = None
 
 
 class ResultScores(BaseModel):
@@ -45,6 +47,23 @@ class SearchResponse(BaseModel):
     query: str
     results: list[SearchResult]
     metadata: ResponseMetadata
+
+
+class ExtractMetadata(BaseModel):
+    domain: str
+    word_count: int
+    extracted_by: Literal["crawl4ai", "trafilatura", "none"]
+    extraction_ok: bool
+    extraction_error: Optional[str] = None
+    extraction_time_ms: int
+
+
+class ExtractResponse(BaseModel):
+    url: HttpUrl
+    canonical_url: HttpUrl
+    title: str
+    content: Optional[str] = Field(default=None, max_length=80000)
+    metadata: ExtractMetadata
 
 
 class ErrorDetails(BaseModel):

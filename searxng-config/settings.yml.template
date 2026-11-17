@@ -74,6 +74,14 @@ engines:
     disabled: true
   - name: stackoverflow
     disabled: true
+  - name: wikidata
+    disabled: true
+  - name: ahmia
+    disabled: true
+  - name: torch
+    disabled: true
+  - name: yacy images
+    disabled: true
 
 # Disable telemetry and tracking
 outgoing:

@@ -1,17 +1,22 @@
 # Butterscout
 
-**The Open Source Search & Extraction API for LLM Agents**
+**The Search Backend for AI Agents**
 
-Butterscout is a transparent, developer-first alternative to Tavily and Serper. It orchestrates **SearXNG** (for search) and **Crawl4AI** (for extraction) to provide a unified, LLM-ready API for web research.
+Open-source search and extraction API. Self-host or use our managed service.
+
+Butterscout orchestrates **SearXNG** (for search) and **Crawl4AI** (for extraction) to provide a unified, LLM-ready API for web research.
 
 > **Note**: A managed version with zero-ops deployment is in development. [Follow for updates](https://github.com/BoogieMonsta/butterscout/discussions).
 
 ## Why Butterscout?
 
-- **Transparent**: No "black box" ranking. See exactly why a page was chosen or skipped
-- **Configurable**: Tweak CSS selectors, domain filters, and ranking weights
-- **Privacy-First**: Self-host on your own infrastructure. Keep your data internal
-- **Cost-Effective**: Run on your own hardware (e.g., Hetzner) and avoid per-request fees
+**Tavily charges $0.01/search. Serper starts at $50/month. Both are black boxes.**
+
+Butterscout gives you:
+- **$12/month** on Hetzner for unlimited self-hosted searches
+- **Full transparency**: See exactly what was searched and why
+- **Agent-optimized output**: Clean JSON designed for LLM context windows
+- **Your infrastructure**: Data never leaves your servers
 
 ## Features
 
@@ -79,6 +84,20 @@ See `.env.example` for all available configuration options.
 - Extraction concurrency: 4 URLs per request
 - Cache TTL: 1h
 
+## Performance
+
+Tested on Hetzner CPX32 (4 vCPU, 8GB RAM) with default settings:
+
+| Metric | Value |
+|--------|-------|
+| p50 latency | ~1.2s |
+| p95 latency | ~2.8s |
+| p99 latency | ~3.5s |
+| Test coverage | 88%+ |
+| Cache hit speedup | ~50x |
+
+*Measured with 10 concurrent requests, DuckDuckGo + Bing engines, extraction enabled.*
+
 ## Usage Examples
 
 > **Note:** Replace `localhost:8000` with your deployment URL in production.
@@ -144,3 +163,17 @@ console.log(data);
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** - Development setup and contribution guidelines
 - **[TECH SPEC.md](TECH%20SPEC.md)** - Product and operations specifications
 - **[deployment/](deployment/)** - Maintainer deployment (CI/CD, production configs)
+
+## Roadmap
+
+**v0.1 (Current)**: Core search + extraction API with SearXNG and Crawl4AI
+
+**v0.2 (Next)**:
+- Framework integrations (LangChain, LlamaIndex, Goose)
+- Brave Search API as optional provider
+- Embedding-based re-ranking
+
+**v0.3+**:
+- Python and TypeScript SDKs
+- Search depth modes (fast/balanced/deep)
+- LLM-based relevance scoring

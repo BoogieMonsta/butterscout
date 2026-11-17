@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 
 class SearchOptions(BaseModel):
@@ -48,3 +48,9 @@ class SearchRequest(BaseModel):
         if not value:
             raise ValueError("Query cannot be empty or whitespace-only")
         return value
+
+
+class ExtractRequest(BaseModel):
+    url: HttpUrl
+    extract_timeout_ms: int = Field(default=2500, ge=500, le=6000)
+    max_characters: int = Field(default=50000, ge=1000, le=80000)

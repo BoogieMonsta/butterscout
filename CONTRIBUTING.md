@@ -10,7 +10,7 @@ Please be respectful and considerate of others. We want to maintain a welcoming 
 
 ### Reporting Bugs
 
-If you find a bug, please open an issue on GitHub. Include as much detail as possible:
+If you find a bug, please open an issue on GitHub using the [Bug Report template](.github/ISSUE_TEMPLATE/bug_report.md). Include as much detail as possible:
 - Steps to reproduce
 - Expected behavior
 - Actual behavior

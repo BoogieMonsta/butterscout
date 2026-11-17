@@ -71,7 +71,9 @@ class Crawl4AIClient:
         start_time = time.perf_counter()
         effective_timeout_ms = timeout_ms or self.settings.BS_EXTRACTION_TIMEOUT_MS
         # Never exceed configured request timeout budget
-        effective_timeout_ms = min(effective_timeout_ms, self.settings.BS_REQUEST_TIMEOUT_MS)
+        effective_timeout_ms = min(
+            effective_timeout_ms, self.settings.BS_REQUEST_TIMEOUT_MS
+        )
         timeout_seconds = effective_timeout_ms / 1000.0
 
         try:
@@ -81,15 +83,11 @@ class Crawl4AIClient:
                 url=url,
             )
 
-            # NOTE: This API structure has been validated through testing
-            # and matches the expected Crawl4AI REST API format.
-            # See tests/unit/test_extraction_clients.py for validation.
             response = await self.client.post(
-                f"{self.base_url}/extract",
+                f"{self.base_url}/md",
                 json={
-                    "url": url,
-                    "format": "markdown",
-                    "remove_selectors": self.settings.BS_EXTRACTION_EXCLUDE_SELECTORS,
+                    "url": str(url),
+                    "f": "raw",
                 },
                 timeout=httpx.Timeout(
                     connect=5.0,
@@ -104,10 +102,18 @@ class Crawl4AIClient:
 
             # Validate response structure
             if not isinstance(data, dict):
-                raise ValueError(f"Invalid response format: expected dict, got {type(data)}")
+                raise ValueError(
+                    f"Invalid response format: expected dict, got {type(data)}"
+                )
 
-            # Extract content and metadata
-            content = data.get("content", "")
+            if data.get("success") is False:
+                raise ValueError(
+                    data.get("error") or "Crawl4AI markdown extraction failed"
+                )
+
+            # Current Crawl4AI exposes single-page Markdown through /md. Keep the
+            # older "content" field as a tolerance shim for older local images.
+            content = data.get("markdown") or data.get("content", "")
 
             # Check if content is empty
             if not content or not content.strip():

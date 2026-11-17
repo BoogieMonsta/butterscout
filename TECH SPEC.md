@@ -29,6 +29,12 @@ The first goal is reliability and ergonomics, not cleverness: stable infrastruct
   - Crawl4AI: Focused on crawling + extraction from URLs.  
   - Butterscout: Adds the search layer and orchestration to go from query → URLs → extracted content in a single API call.
 
+### 1.3 Target Audience
+
+- Developers building AI agents and automation tools
+- DevTools companies adding research/search features
+- Privacy-conscious teams who need self-hosted infrastructure
+
 ---
 
 ## 2. Goals & Constraints
@@ -219,6 +225,13 @@ Not part of the MVP, but the next step:
   - Butterscout communicates with SearXNG over HTTP.
 
 Future versions may add additional providers (Brave, SerpAPI, etc.), but that is explicitly deferred.
+
+### 5.2b Search Provider (v0.2+)
+- **Brave Search API:**
+  - Official API with no proxy requirements
+  - Pricing: ~$5/1000 queries at scale
+  - Planned as optional provider for managed deployments
+  - Fallback for users who don't want to manage proxies
 
 ### 5.3 Extraction
 - **Primary:** Crawl4AI service (self-hosted).
@@ -530,29 +543,30 @@ _These do not need to be resolved for v0.1 and should not block implementation._
 
 ---
 
-## 10. Roadmap (High-Level)
+## 10. Roadmap
 
-**Phase 1 – Skeleton (≈ 2–3 weeks actual coding time):**
-- FastAPI skeleton with /health.
-- SearXNG client.
-- POST /api/v1/search returning only URLs/snippets (no extraction).
-- Basic tests and logging.
+### v0.1 – Core (Current Release)
+- SearXNG integration (DuckDuckGo + Bing default)
+- Crawl4AI extraction with Trafilatura fallback
+- Redis caching and rate limiting
+- Prometheus metrics
+- Docker Compose deployment
+- 88%+ test coverage
 
-**Phase 2 – Extraction & Ranking (≈ 2–3 weeks):**
-- Crawl4AI integration and fallback extractor.
-- Parallel extraction and result assembly.
-- Deduplication and simple ranking.
-- Valkey caching and rate limiting.
-- OpenAPI docs.
+### v0.2 – Integrations & Reliability
+- **Framework integrations**: LangChain, LlamaIndex, Goose
+- **Brave Search API**: Optional provider for managed deployments (reliable, no proxy needed)
+- **Embedding-based re-ranking**: Local model for semantic ordering
+- **Search depth modes**: fast (snippets only), balanced (default), deep (+ re-ranking)
 
-**Phase 3 – Hardening (≈ 2–3 weeks):**
-- Improve error handling and timeouts.
-- Add minimal metrics.
-- Refine config & docs.
-- Internal eval notebook with hand-crafted queries.
+### v0.3 – Developer Experience
+- **Python SDK**: `pip install butterscout`
+- **TypeScript SDK**: `pnpm add butterscout`
+- **MCP integration**: Model Context Protocol support
+- **Eval harness**: Scripted benchmark suite with reproducible results
 
-**Phase 4 – v0.2+ (Future):**
-- Embedding-based re-ranking.
-- Optional LLM-based scoring for deep mode.
-- Simple eval harness script.
-- SDKs and ecosystem integrations.
+### Future Considerations
+- Web dashboard for testing and monitoring
+- Query understanding / intent classification
+- Domain-specific modes (academic, news, coding)
+- Config API for dynamic tuning

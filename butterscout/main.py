@@ -34,7 +34,7 @@ from butterscout.models.exceptions import (
     UnauthorizedError,
     UpstreamProviderError,
 )
-from butterscout.routers import health, search
+from butterscout.routers import extract, health, search
 from butterscout.routers import metrics as metrics_router
 from butterscout.services.metrics import metrics_service
 from butterscout.state import app_state
@@ -449,4 +449,5 @@ async def upstream_error_handler(request: Request, exc: UpstreamProviderError) -
 # Include routers
 app.include_router(health.router)
 app.include_router(search.router, prefix="/api/v1")
+app.include_router(extract.router, prefix="/api/v1")
 app.include_router(metrics_router.create_metrics_router(app_state.settings))

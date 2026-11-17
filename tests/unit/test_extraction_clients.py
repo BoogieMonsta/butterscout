@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from typing import cast
 
 import httpx
 import pytest
 import respx
 from httpx import Response
-from pydantic import HttpUrl
+from pydantic import HttpUrl, TypeAdapter
 
 from butterscout.clients.crawl4ai_client import Crawl4AIClient
 from butterscout.clients.extraction_strategy import ExtractionStrategy
@@ -21,16 +22,20 @@ def _url(url_str: str) -> HttpUrl:
     return cast(HttpUrl, url_str)
 
 
+def _validated_url(url_str: str) -> HttpUrl:
+    return TypeAdapter(HttpUrl).validate_python(url_str)
+
+
 @pytest.mark.asyncio
 @respx.mock
 async def test_crawl4ai_success(settings: Settings) -> None:
     """Test successful Crawl4AI extraction."""
     mock_response = {
-        "content": "This is extracted content from Crawl4AI. It has multiple words here.",
-        "metadata": {},
+        "markdown": "This is extracted content from Crawl4AI. It has multiple words here.",
+        "success": True,
     }
 
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/extract").mock(
+    route = respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
         return_value=Response(200, json=mock_response)
     )
 
@@ -38,19 +43,24 @@ async def test_crawl4ai_success(settings: Settings) -> None:
     await client.connect()
 
     try:
-        result = await client.extract(_url("https://example.com"), "test-123")
+        result = await client.extract(_validated_url("https://example.com"), "test-123")
 
         assert result.extraction_ok is True
         assert result.extracted_by == "crawl4ai"
         assert result.word_count > 0
         assert "Crawl4AI" in result.content
         assert result.extraction_time_ms > 0
+        payload = json.loads(route.calls.last.request.content)
+        assert payload["url"] == "https://example.com/"
+        assert payload["f"] == "raw"
     finally:
         await client.disconnect()
 
 
 @pytest.mark.asyncio
-async def test_extraction_strategy_fallback_used(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_extraction_strategy_fallback_used(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Ensure fallback is invoked when Crawl4AI fails."""
 
     class FakeCrawl4AI:
@@ -124,7 +134,7 @@ async def test_extraction_strategy_no_fallback() -> None:
 @respx.mock
 async def test_crawl4ai_timeout(settings: Settings) -> None:
     """Test Crawl4AI timeout handling."""
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/extract").mock(
+    respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
         side_effect=httpx.TimeoutException("Request timeout")
     )
 
@@ -142,7 +152,7 @@ async def test_crawl4ai_timeout(settings: Settings) -> None:
 @respx.mock
 async def test_crawl4ai_http_error(settings: Settings) -> None:
     """Test Crawl4AI HTTP error handling."""
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/extract").mock(
+    respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
         return_value=Response(500, json={"error": "Internal server error"})
     )
 
@@ -161,11 +171,11 @@ async def test_crawl4ai_http_error(settings: Settings) -> None:
 async def test_crawl4ai_empty_content(settings: Settings) -> None:
     """Test Crawl4AI empty content handling."""
     mock_response = {
-        "content": "",
-        "metadata": {},
+        "markdown": "",
+        "success": True,
     }
 
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/extract").mock(
+    respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
         return_value=Response(200, json=mock_response)
     )
 
@@ -184,11 +194,11 @@ async def test_crawl4ai_empty_content(settings: Settings) -> None:
 async def test_crawl4ai_whitespace_only_content(settings: Settings) -> None:
     """Test Crawl4AI whitespace-only content handling."""
     mock_response = {
-        "content": "   \n\t  ",
-        "metadata": {},
+        "markdown": "   \n\t  ",
+        "success": True,
     }
 
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/extract").mock(
+    respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
         return_value=Response(200, json=mock_response)
     )
 
@@ -207,7 +217,7 @@ async def test_crawl4ai_whitespace_only_content(settings: Settings) -> None:
 async def test_crawl4ai_invalid_response_format(settings: Settings) -> None:
     """Test Crawl4AI invalid response format handling."""
     # Return a list instead of dict
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/extract").mock(
+    respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
         return_value=Response(200, json=["not", "a", "dict"])
     )
 
@@ -360,11 +370,11 @@ async def test_trafilatura_http_error(settings: Settings) -> None:
 async def test_extraction_strategy_crawl4ai_success(settings: Settings) -> None:
     """Test extraction strategy with successful Crawl4AI."""
     mock_response = {
-        "content": "Content from Crawl4AI primary extractor.",
-        "metadata": {},
+        "markdown": "Content from Crawl4AI primary extractor.",
+        "success": True,
     }
 
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/extract").mock(
+    respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
         return_value=Response(200, json=mock_response)
     )
 
@@ -389,7 +399,7 @@ async def test_extraction_strategy_crawl4ai_success(settings: Settings) -> None:
 async def test_extraction_strategy_fallback_to_trafilatura(settings: Settings) -> None:
     """Test extraction strategy falls back to Trafilatura when Crawl4AI fails."""
     # Mock Crawl4AI to fail
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/extract").mock(
+    respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
         return_value=Response(500, json={"error": "Internal error"})
     )
 
@@ -411,7 +421,9 @@ async def test_extraction_strategy_fallback_to_trafilatura(settings: Settings) -
     await trafilatura.connect()
 
     try:
-        result = await strategy.extract(_url("https://example.com"), "test-strategy-fallback")
+        result = await strategy.extract(
+            _url("https://example.com"), "test-strategy-fallback"
+        )
         assert result.extraction_ok is True
         assert result.extracted_by == "trafilatura"
     finally:
@@ -424,7 +436,7 @@ async def test_extraction_strategy_fallback_to_trafilatura(settings: Settings) -
 async def test_extraction_strategy_both_fail(settings: Settings) -> None:
     """Test extraction strategy when both extractors fail."""
     # Mock Crawl4AI to fail
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/extract").mock(
+    respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
         return_value=Response(500, json={"error": "Internal error"})
     )
 
@@ -441,7 +453,9 @@ async def test_extraction_strategy_both_fail(settings: Settings) -> None:
     await trafilatura.connect()
 
     try:
-        result = await strategy.extract(_url("https://example.com"), "test-strategy-both-fail")
+        result = await strategy.extract(
+            _url("https://example.com"), "test-strategy-both-fail"
+        )
         assert result.extraction_ok is False
         assert result.extracted_by == "none"
         assert result.error is not None
@@ -458,7 +472,7 @@ async def test_extraction_strategy_fallback_disabled(settings: Settings) -> None
     settings.BS_FALLBACK_ENABLED = False
 
     # Mock Crawl4AI to fail
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/extract").mock(
+    respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
         return_value=Response(500, json={"error": "Internal error"})
     )
 
@@ -481,11 +495,13 @@ async def test_extraction_strategy_fallback_disabled(settings: Settings) -> None
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_extraction_strategy_crawl4ai_empty_content_fallback(settings: Settings) -> None:
+async def test_extraction_strategy_crawl4ai_empty_content_fallback(
+    settings: Settings,
+) -> None:
     """Test extraction strategy falls back when Crawl4AI returns empty content."""
     # Mock Crawl4AI to return empty content
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/extract").mock(
-        return_value=Response(200, json={"content": "", "metadata": {}})
+    respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
+        return_value=Response(200, json={"markdown": "", "success": True})
     )
 
     # Mock successful Trafilatura fetch
@@ -506,7 +522,9 @@ async def test_extraction_strategy_crawl4ai_empty_content_fallback(settings: Set
     await trafilatura.connect()
 
     try:
-        result = await strategy.extract(_url("https://example.com"), "test-empty-fallback")
+        result = await strategy.extract(
+            _url("https://example.com"), "test-empty-fallback"
+        )
         # Should succeed with Trafilatura after Crawl4AI returned empty
         assert result.extraction_ok is True
         assert result.extracted_by == "trafilatura"
