@@ -71,9 +71,7 @@ class Crawl4AIClient:
         start_time = time.perf_counter()
         effective_timeout_ms = timeout_ms or self.settings.BS_EXTRACTION_TIMEOUT_MS
         # Never exceed configured request timeout budget
-        effective_timeout_ms = min(
-            effective_timeout_ms, self.settings.BS_REQUEST_TIMEOUT_MS
-        )
+        effective_timeout_ms = min(effective_timeout_ms, self.settings.BS_REQUEST_TIMEOUT_MS)
         timeout_seconds = effective_timeout_ms / 1000.0
 
         try:
@@ -102,14 +100,10 @@ class Crawl4AIClient:
 
             # Validate response structure
             if not isinstance(data, dict):
-                raise ValueError(
-                    f"Invalid response format: expected dict, got {type(data)}"
-                )
+                raise ValueError(f"Invalid response format: expected dict, got {type(data)}")
 
             if data.get("success") is False:
-                raise ValueError(
-                    data.get("error") or "Crawl4AI markdown extraction failed"
-                )
+                raise ValueError(data.get("error") or "Crawl4AI markdown extraction failed")
 
             # Current Crawl4AI exposes single-page Markdown through /md. Keep the
             # older "content" field as a tolerance shim for older local images.

@@ -46,9 +46,7 @@ async def test_extract_reads_one_public_url(mock_extract_state: MagicMock) -> No
 
     with patch("butterscout.services.extract_service.RateLimiter") as mock_limiter_class:
         mock_limiter = mock_limiter_class.return_value
-        mock_limiter.check_rate_limit = AsyncMock(
-            return_value=(True, None, 59, 60, 1234567890)
-        )
+        mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 59, 60, 1234567890))
 
         client = TestClient(app, raise_server_exceptions=False)
         response = client.post(
@@ -71,9 +69,7 @@ async def test_extract_blocks_private_urls(mock_extract_state: MagicMock) -> Non
 
     with patch("butterscout.services.extract_service.RateLimiter") as mock_limiter_class:
         mock_limiter = mock_limiter_class.return_value
-        mock_limiter.check_rate_limit = AsyncMock(
-            return_value=(True, None, 59, 60, 1234567890)
-        )
+        mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 59, 60, 1234567890))
 
         client = TestClient(app, raise_server_exceptions=False)
         response = client.post("/api/v1/extract", json={"url": "http://127.0.0.1:8000"})
@@ -92,14 +88,10 @@ async def test_extract_requires_api_key_when_configured(
 
     with patch("butterscout.services.extract_service.RateLimiter") as mock_limiter_class:
         mock_limiter = mock_limiter_class.return_value
-        mock_limiter.check_rate_limit = AsyncMock(
-            return_value=(True, None, 59, 60, 1234567890)
-        )
+        mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 59, 60, 1234567890))
 
         client = TestClient(app, raise_server_exceptions=False)
-        response = client.post(
-            "/api/v1/extract", json={"url": "https://93.184.216.34/page"}
-        )
+        response = client.post("/api/v1/extract", json={"url": "https://93.184.216.34/page"})
 
     assert response.status_code == 401
     mock_extract_state.extraction_strategy.extract.assert_not_called()

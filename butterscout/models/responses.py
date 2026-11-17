@@ -12,9 +12,7 @@ class ResultMetadata(BaseModel):
     word_count: Optional[int] = None
     extracted_by: Literal["crawl4ai", "trafilatura", "none"]
     extraction_ok: bool
-    extraction_error: Optional[
-        Literal["timeout", "network_error", "parse_error", "blocked"]
-    ] = None
+    extraction_error: Optional[Literal["timeout", "network_error", "parse_error", "blocked"]] = None
     # True when `content` was clipped (to SEARCH_CONTENT_MAX_CHARS here, or further by
     # a client-facing adapter such as the MCP tool). Defaults False so cached responses
     # written before this field existed still load.

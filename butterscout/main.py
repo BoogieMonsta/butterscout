@@ -463,9 +463,7 @@ async def invalid_url_handler(request: Request, exc: InvalidUrlError) -> JSONRes
 
 
 @app.exception_handler(DomainNotAllowedError)
-async def domain_not_allowed_handler(
-    request: Request, exc: DomainNotAllowedError
-) -> JSONResponse:
+async def domain_not_allowed_handler(request: Request, exc: DomainNotAllowedError) -> JSONResponse:
     return JSONResponse(status_code=403, content={"detail": exc.message}, headers=exc.headers)
 
 

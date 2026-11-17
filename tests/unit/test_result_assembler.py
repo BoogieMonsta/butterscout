@@ -321,8 +321,11 @@ def test_cached_response_without_truncation_field_still_loads() -> None:
                 "url": "https://example.com/",
                 "snippet": "s",
                 "content": "c",
-                "metadata": {"domain": "example.com", "extracted_by": "crawl4ai",
-                             "extraction_ok": True},
+                "metadata": {
+                    "domain": "example.com",
+                    "extracted_by": "crawl4ai",
+                    "extraction_ok": True,
+                },
                 "scores": {"search_score": 0.5, "rank": 1},
                 "source": "searxng",
             }

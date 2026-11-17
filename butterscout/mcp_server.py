@@ -325,9 +325,9 @@ class McpHttpEndpoint:
             return
         manager = app_state.mcp_session_manager
         if manager is None:
-            await JSONResponse(
-                {"detail": "MCP is not running"}, status_code=503
-            )(scope, receive, send)
+            await JSONResponse({"detail": "MCP is not running"}, status_code=503)(
+                scope, receive, send
+            )
             return
         if settings.BS_API_KEY and not _key_matches(Headers(scope=scope), settings.BS_API_KEY):
             await JSONResponse(

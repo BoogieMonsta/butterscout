@@ -421,9 +421,7 @@ async def test_extraction_strategy_fallback_to_trafilatura(settings: Settings) -
     await trafilatura.connect()
 
     try:
-        result = await strategy.extract(
-            _url("https://example.com"), "test-strategy-fallback"
-        )
+        result = await strategy.extract(_url("https://example.com"), "test-strategy-fallback")
         assert result.extraction_ok is True
         assert result.extracted_by == "trafilatura"
     finally:
@@ -453,9 +451,7 @@ async def test_extraction_strategy_both_fail(settings: Settings) -> None:
     await trafilatura.connect()
 
     try:
-        result = await strategy.extract(
-            _url("https://example.com"), "test-strategy-both-fail"
-        )
+        result = await strategy.extract(_url("https://example.com"), "test-strategy-both-fail")
         assert result.extraction_ok is False
         assert result.extracted_by == "none"
         assert result.error is not None
@@ -522,9 +518,7 @@ async def test_extraction_strategy_crawl4ai_empty_content_fallback(
     await trafilatura.connect()
 
     try:
-        result = await strategy.extract(
-            _url("https://example.com"), "test-empty-fallback"
-        )
+        result = await strategy.extract(_url("https://example.com"), "test-empty-fallback")
         # Should succeed with Trafilatura after Crawl4AI returned empty
         assert result.extraction_ok is True
         assert result.extracted_by == "trafilatura"
