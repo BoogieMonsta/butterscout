@@ -160,3 +160,22 @@ def test_domain_filter_normalizes_host() -> None:
     assert not is_domain_allowed("https://EXAMPLE.com:8443/x", [], ["example.com."])
     assert is_domain_allowed("https://docs.example.com./x", ["example.com"], [])
     assert not is_domain_allowed("not-a-valid-url", [], [])
+
+
+def test_is_obviously_unsafe_url() -> None:
+    from butterscout.utils.url_safety import is_obviously_unsafe_url
+
+    for unsafe in [
+        "ftp://example.com/",
+        "https://u:p@example.com/",
+        "http://localhost/",
+        "http://printer.local/",
+        "http://127.0.0.1:6379/",
+        "http://10.1.2.3/",
+        "http://[::1]/",
+        "http://169.254.169.254/",
+        "http://metadata.google.internal/",
+    ]:
+        assert is_obviously_unsafe_url(unsafe), unsafe
+    for safe in ["https://example.com/", "http://93.184.216.34/", "https://example.com./"]:
+        assert not is_obviously_unsafe_url(safe), safe

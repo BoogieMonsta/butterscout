@@ -35,7 +35,12 @@ class ResultAssembler:
         Returns:
             List of complete SearchResult objects
         """
-        from butterscout.models.responses import ResultMetadata, ResultScores, SearchResult
+        from butterscout.models.responses import (
+            SEARCH_CONTENT_MAX_CHARS,
+            ResultMetadata,
+            ResultScores,
+            SearchResult,
+        )
 
         # Create URL -> ExtractedContent mapping
         content_map = {str(ec.url): ec for ec in extracted_contents}
@@ -58,13 +63,18 @@ class ResultAssembler:
                 extracted_by: Literal["crawl4ai", "trafilatura", "none"] = _normalized_extractor(
                     extracted.extracted_by
                 )
+                content = extracted.content if include_content else None
+                truncated = content is not None and len(content) > SEARCH_CONTENT_MAX_CHARS
+                if content is not None and truncated:
+                    # The response model caps content; clip here instead of failing.
+                    content = content[:SEARCH_CONTENT_MAX_CHARS]
                 extraction_metadata = ResultMetadata(
                     domain=urlparse(url_str).netloc,
                     word_count=extracted.word_count,
                     extracted_by=extracted_by,
                     extraction_ok=True,
+                    content_truncated=truncated,
                 )
-                content = extracted.content if include_content else None
             else:
                 # Extraction failed or not attempted
                 extracted_by = _normalized_extractor(extracted.extracted_by if extracted else None)

@@ -434,3 +434,37 @@ async def test_request_id_in_response() -> None:
     # Request ID should be in response headers
     assert "X-Request-ID" in response.headers
     assert "X-Response-Time" in response.headers
+
+
+@pytest.mark.asyncio
+async def test_search_drops_private_result_urls(mock_app_state: MagicMock) -> None:
+    """Literal private/local result URLs are dropped individually; public ones survive."""
+    from butterscout.main import app
+
+    urls = [
+        "https://example.com/ok",
+        "http://127.0.0.1:6379/",
+        "http://169.254.169.254/latest",
+        "http://localhost/x",
+        "https://example.org/also-ok",
+    ]
+    mock_app_state.searxng_client.search = AsyncMock(
+        return_value=[
+            NormalizedSearchResult(
+                title=f"R{i}", url=HttpUrl(u), snippet="s", score=1.0, source="searxng"
+            )
+            for i, u in enumerate(urls)
+        ]
+    )
+
+    with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
+        mock_limiter = mock_limiter_class.return_value
+        mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 59, 60, 1234567890))
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.post(
+            "/api/v1/search", json={"query": "test query", "include_content": False}
+        )
+
+    assert response.status_code == 200
+    returned = sorted(r["url"] for r in response.json()["results"])
+    assert returned == ["https://example.com/ok", "https://example.org/also-ok"]

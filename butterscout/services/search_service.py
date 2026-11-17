@@ -30,6 +30,7 @@ from butterscout.services.result_assembler import ResultAssembler
 from butterscout.utils.content_filter import filter_low_quality_results
 from butterscout.utils.domain_filter import is_domain_allowed
 from butterscout.utils.rate_limit_headers import generate_rate_limit_headers
+from butterscout.utils.url_safety import is_obviously_unsafe_url
 
 logger = structlog.get_logger()
 
@@ -206,7 +207,8 @@ class SearchService:
         if request_state and hasattr(request_state, "searxng_time_ms"):
             request_state.searxng_time_ms = searxng_time_ms
 
-        # 6. Apply Domain Filtering
+        # 6. Apply Domain Filtering, and drop results we must never fetch (local hosts,
+        # literal private IPs). Per result, so one bad URL doesn't sink the search.
         filtered_results = [
             r
             for r in search_results
@@ -215,6 +217,7 @@ class SearchService:
                 self.settings.allowed_domains_list,
                 self.settings.blocked_domains_list,
             )
+            and not is_obviously_unsafe_url(str(r.url))
         ]
 
         # 7. Deduplicate

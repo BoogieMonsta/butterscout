@@ -24,6 +24,7 @@ from butterscout.services.rate_limiter import RateLimiter
 from butterscout.state import app_state
 from butterscout.utils.domain_filter import is_domain_allowed
 from butterscout.utils.rate_limit_headers import generate_rate_limit_headers
+from butterscout.utils.url_safety import blocked_hostname
 
 logger = structlog.get_logger()
 
@@ -146,7 +147,7 @@ async def assert_public_url(url: str) -> None:
     if parsed.username or parsed.password:
         raise InvalidUrlError("URLs with embedded credentials are not allowed")
     hostname = (parsed.hostname or "").lower().rstrip(".")
-    if not hostname or _blocked_hostname(hostname):
+    if not hostname or blocked_hostname(hostname):
         raise InvalidUrlError("URL points to a local or private host")
 
     try:
@@ -163,15 +164,6 @@ async def assert_public_url(url: str) -> None:
         ip = ipaddress.ip_address(address)
         if not ip.is_global:
             raise InvalidUrlError("URL resolves to a local or private address")
-
-
-def _blocked_hostname(hostname: str) -> bool:
-    return (
-        hostname == "localhost"
-        or hostname.endswith(".localhost")
-        or hostname.endswith(".local")
-        or hostname == "metadata.google.internal"
-    )
 
 
 def _word_count(value: str) -> int:

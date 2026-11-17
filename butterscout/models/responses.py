@@ -15,6 +15,13 @@ class ResultMetadata(BaseModel):
     extraction_error: Optional[
         Literal["timeout", "network_error", "parse_error", "blocked"]
     ] = None
+    # True when `content` was clipped (to SEARCH_CONTENT_MAX_CHARS here, or further by
+    # a client-facing adapter such as the MCP tool). Defaults False so cached responses
+    # written before this field existed still load.
+    content_truncated: bool = False
+
+
+SEARCH_CONTENT_MAX_CHARS = 50000
 
 
 class ResultScores(BaseModel):
@@ -26,7 +33,7 @@ class SearchResult(BaseModel):
     title: str = Field(max_length=500)
     url: HttpUrl
     snippet: str = Field(max_length=1000)
-    content: Optional[str] = Field(default=None, max_length=50000)
+    content: Optional[str] = Field(default=None, max_length=SEARCH_CONTENT_MAX_CHARS)
     metadata: ResultMetadata
     scores: ResultScores
     source: Literal["searxng"]

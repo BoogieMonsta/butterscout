@@ -280,3 +280,53 @@ def test_result_assembler_domain_extraction() -> None:
     )
 
     assert results[0].metadata.domain == "blog.example.com"
+
+
+def test_result_assembler_clips_oversized_content() -> None:
+    """Pages longer than the response cap are clipped, not a validation crash."""
+    search_results = [
+        NormalizedSearchResult(
+            title="Long",
+            url=_url("https://example.com/long"),
+            snippet="s",
+            score=0.5,
+        ),
+    ]
+    extracted_contents = [
+        ExtractedContent(
+            url=_url("https://example.com/long"),
+            content="x" * 50_001,
+            word_count=1,
+            extracted_by="crawl4ai",
+            extraction_ok=True,
+            extraction_time_ms=1,
+        ),
+    ]
+    results = ResultAssembler.assemble(
+        search_results, extracted_contents, include_content=True, request_id="t"
+    )
+    assert results[0].content is not None
+    assert len(results[0].content) == 50_000
+    assert results[0].metadata.content_truncated is True
+
+
+def test_cached_response_without_truncation_field_still_loads() -> None:
+    from butterscout.models.responses import SearchResponse
+
+    cached = {
+        "query": "q",
+        "results": [
+            {
+                "title": "t",
+                "url": "https://example.com/",
+                "snippet": "s",
+                "content": "c",
+                "metadata": {"domain": "example.com", "extracted_by": "crawl4ai",
+                             "extraction_ok": True},
+                "scores": {"search_score": 0.5, "rank": 1},
+                "source": "searxng",
+            }
+        ],
+        "metadata": {"search_time_ms": 1, "cache_hit": True, "sources_queried": ["searxng"]},
+    }
+    assert SearchResponse(**cached).results[0].metadata.content_truncated is False

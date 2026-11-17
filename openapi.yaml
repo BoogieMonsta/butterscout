@@ -324,6 +324,10 @@ components:
                 - type: string
                   enum: [timeout, network_error, parse_error, blocked]
                 - type: 'null'
+            content_truncated:
+              type: boolean
+              default: false
+              description: True when content was clipped to the 50000-character limit.
         scores:
           type: object
           required: [search_score, rank]
