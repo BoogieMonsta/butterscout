@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+
 from butterscout.clients.crawl4ai_client import Crawl4AIClient
 from butterscout.clients.extraction_strategy import ExtractionStrategy
 from butterscout.clients.redis_client import ValkeyClient
@@ -25,6 +27,8 @@ class AppState:
     extraction_strategy: ExtractionStrategy
     cache_backend: CacheBackend
     cache_service: CacheService
+    # Set only while the app lifespan is running with BS_MCP_ENABLED.
+    mcp_session_manager: Optional[StreamableHTTPSessionManager] = None
 
 
 app_state = AppState()

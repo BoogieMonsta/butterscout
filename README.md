@@ -156,6 +156,49 @@ const data = await response.json();
 console.log(data);
 ```
 
+## MCP (for agent harnesses)
+
+Butterscout can serve the [Model Context Protocol](https://modelcontextprotocol.io) over
+Streamable HTTP at `http://localhost:8000/mcp`, with two read-only tools:
+
+- `butterscout_search`: search + extracted page text (each result clipped to 4,000
+  characters; `content_truncated` marks clipped results; `max_results` is capped at
+  `BS_MAX_RESULTS`). Default 5 results ≈ 20k characters of content; 10 ≈ 40k.
+- `butterscout_extract`: clean Markdown/text for one public URL (default 20,000 characters,
+  up to 80,000).
+
+It is **off by default** (`BS_MCP_ENABLED=false`). The development compose override turns it
+on and binds every port to `127.0.0.1`. The endpoint is stateless (no session ids, safe
+across `uvicorn --reload`) and only accepts `Host` values in `BS_MCP_ALLOWED_HOSTS` and
+`Origin` values in `BS_MCP_ALLOWED_ORIGINS` (empty = no browsers), to block DNS rebinding.
+Tool calls share the REST rate limit (one per call) and API-key rules.
+
+Register it:
+
+```bash
+claude mcp add --scope user --transport http butterscout http://localhost:8000/mcp
+codex mcp add butterscout --url http://localhost:8000/mcp
+```
+
+OpenCode 2.x (`~/.config/opencode/opencode.json`):
+
+```json
+{ "mcp": { "servers": { "butterscout": {
+  "type": "remote", "url": "http://localhost:8000/mcp", "oauth": false } } } }
+```
+
+If `BS_API_KEY` is set, `/mcp` answers 401 without a key. Send it as `x-api-key` or
+`Authorization: Bearer <key>` (REST accepts both too): Claude
+`--header "Authorization: Bearer $BS_API_KEY"`, Codex `--bearer-token-env-var BS_API_KEY`,
+OpenCode `"headers": {"Authorization": "Bearer <key>"}`. Without a configured header, Claude
+treats a 401 as a cue to start OAuth, which Butterscout does not offer. This keyed setup is
+documented but has not been tested end to end in a harness.
+
+Known limit: `/api/v1/extract` and `butterscout_extract` check the URL (and its DNS) before
+fetching, and search drops literal private/local URLs, but the extractors follow redirects
+and resolve DNS again at fetch time. Don't expose `/mcp` publicly until that is enforced at
+the fetch boundary.
+
 ## Documentation
 
 - **[openapi.yaml](openapi.yaml)** - OpenAPI specification

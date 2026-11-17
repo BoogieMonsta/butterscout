@@ -14,23 +14,30 @@ services:
       - ./tests:/app/tests:ro
       - ./pyproject.toml:/app/pyproject.toml:ro
       - ./uv.lock:/app/uv.lock:ro
+    # Loopback only: `!override` replaces the base "8000:8000" (a plain list would
+    # merge and keep the 0.0.0.0 binding too).
+    ports: !override
+      - "127.0.0.1:8000:8000"
     environment:
       # Enable debug logging in development
       BS_LOG_LEVEL: debug
       # Enable metrics for local testing
       BS_ENABLE_METRICS: "true"
+      # MCP for local agent harnesses (Claude, Codex, OpenCode) at http://localhost:8000/mcp
+      BS_MCP_ENABLED: ${BS_MCP_ENABLED:-true}
     # Override command for hot reload
     command: ["uv", "run", "uvicorn", "butterscout.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
-  # Development mode: expose all ports for direct access
+  # Development mode: expose ports for direct access, on loopback only (Valkey has no
+  # password locally). `!override` replaces the base 0.0.0.0 bindings.
   searxng:
-    ports:
-      - "8080:8080"
+    ports: !override
+      - "127.0.0.1:8080:8080"
 
   redis:
-    ports:
-      - "6379:6379"
+    ports: !override
+      - "127.0.0.1:6379:6379"
 
   crawl4ai:
-    ports:
-      - "11235:11235"
+    ports: !override
+      - "127.0.0.1:11235:11235"

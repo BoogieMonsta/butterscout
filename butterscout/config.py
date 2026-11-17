@@ -64,6 +64,14 @@ class Settings(BaseSettings):
     # Security settings
     BS_PRODUCTION_MODE: bool = False  # Enable strict security checks for production
 
+    # MCP (Streamable HTTP at /mcp). Off unless explicitly enabled.
+    BS_MCP_ENABLED: bool = False
+    # Host header values accepted on /mcp (DNS-rebinding protection). "host:*" = any port.
+    BS_MCP_ALLOWED_HOSTS: str = "localhost:*,127.0.0.1:*,[::1]:*"
+    # Origin header values accepted on /mcp. Empty = only clients that send no Origin
+    # (native MCP clients); browsers are refused.
+    BS_MCP_ALLOWED_ORIGINS: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True,
@@ -104,6 +112,14 @@ class Settings(BaseSettings):
     @property
     def blocked_domains_list(self) -> list[str]:
         return [d.strip() for d in self.BS_BLOCKED_DOMAINS.split(",") if d.strip()]
+
+    @property
+    def mcp_allowed_hosts_list(self) -> list[str]:
+        return [h.strip() for h in self.BS_MCP_ALLOWED_HOSTS.split(",") if h.strip()]
+
+    @property
+    def mcp_allowed_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.BS_MCP_ALLOWED_ORIGINS.split(",") if o.strip()]
 
     @property
     def cors_origins_list(self) -> list[str]:

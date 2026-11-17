@@ -49,6 +49,11 @@ services:
       # CORS (comma-separated origins)
       BS_CORS_ORIGINS: ${BS_CORS_ORIGINS:-*}
 
+      # MCP Streamable HTTP endpoint at /mcp (off unless enabled)
+      BS_MCP_ENABLED: ${BS_MCP_ENABLED:-false}
+      BS_MCP_ALLOWED_HOSTS: ${BS_MCP_ALLOWED_HOSTS:-localhost:*,127.0.0.1:*,[::1]:*}
+      BS_MCP_ALLOWED_ORIGINS: ${BS_MCP_ALLOWED_ORIGINS:-}
+
     depends_on:
       searxng:
         condition: service_healthy

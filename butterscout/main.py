@@ -14,6 +14,7 @@ import structlog
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.routing import Route
 
 from butterscout.clients.crawl4ai_client import Crawl4AIClient
 from butterscout.clients.extraction_strategy import ExtractionStrategy
@@ -27,6 +28,7 @@ from butterscout.clients.stubs import (
 )
 from butterscout.clients.trafilatura_client import TrafilaturaClient
 from butterscout.config import load_settings
+from butterscout.mcp_server import McpHttpEndpoint, run_mcp
 from butterscout.middleware.security_headers import add_security_headers
 from butterscout.models.exceptions import (
     DomainNotAllowedError,
@@ -107,7 +109,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app_state.cache_service = CacheService(app_state.cache_backend, app_state.settings)
 
         health.startup_time = time.time()
-        yield
+        async with run_mcp(app_state.settings):
+            yield
         logger.info("butterscout_shutdown_skip", reason="test_mode")
         return
 
@@ -168,7 +171,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("butterscout_startup_complete")
 
     try:
-        yield
+        async with run_mcp(app_state.settings):
+            yield
     finally:
         logger.info("butterscout_shutdown_begin")
 
@@ -470,3 +474,6 @@ app.include_router(health.router)
 app.include_router(search.router, prefix="/api/v1")
 app.include_router(extract.router, prefix="/api/v1")
 app.include_router(metrics_router.create_metrics_router(app_state.settings))
+# MCP Streamable HTTP. A plain Route (not a Mount) so POST /mcp gets no 307 to /mcp/.
+# The endpoint answers 404 itself while BS_MCP_ENABLED is false.
+app.router.routes.append(Route("/mcp", endpoint=McpHttpEndpoint()))
