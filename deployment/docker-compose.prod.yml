@@ -30,7 +30,7 @@ services:
       
       # Fallback settings
       - BS_FALLBACK_ENABLED=true
-      - BS_FALLBACK_TIMEOUT_MS=2000
+      - BS_FALLBACK_TIMEOUT_MS=3000
       - BS_FALLBACK_MAX_WORKERS=2
       
       # Observability

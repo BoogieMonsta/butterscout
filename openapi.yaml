@@ -62,6 +62,12 @@ paths:
     get:
       summary: Health check
       operationId: health
+      description: >-
+        Checks every dependency; the Crawl4AI check renders an inline page in its browser
+        with the same filter config search uses. Refreshed at most once per 10 s: between
+        refreshes, and while one runs, callers get the last result (its `timestamp` says
+        when it was measured), or 503 with status `refreshing` and no components when there
+        is none. Container healthchecks should use /health/live.
       responses:
         '200':
           description: All components healthy
@@ -70,7 +76,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
         '503':
-          description: One or more components degraded/unhealthy
+          description: A component is degraded or down, or no recent result exists yet
           content:
             application/json:
               schema:
@@ -154,6 +160,8 @@ components:
           minimum: 500
           maximum: 6000
           default: 2500
+          description: >-
+            Per-page budget for Crawl4AI. A page Crawl4AI fails on goes to a fallback extractor with up to min(this, the server's fallback budget, 3000 ms by default) more, so one page can take about this + 1 s + the fallback budget.
         max_characters:
           type: integer
           minimum: 1000
@@ -235,6 +243,8 @@ components:
           minimum: 500
           maximum: 6000
           default: 2500
+          description: >-
+            Per-page budget for Crawl4AI. A page Crawl4AI fails on goes to a fallback extractor with up to min(this, the server's fallback budget, 3000 ms by default) more, so one page can take about this + 1 s + the fallback budget.
         options:
           type: object
           properties:
@@ -436,23 +446,19 @@ components:
       properties:
         status:
           type: string
-          enum: [ok, degraded, unhealthy]
+          enum: [healthy, degraded, refreshing]
         components:
           type: object
-          required: [searxng, crawl4ai, valkey]
-          properties:
-            searxng:
-              $ref: '#/components/schemas/ComponentHealth'
-            crawl4ai:
-              $ref: '#/components/schemas/ComponentHealth'
-            valkey:
-              $ref: '#/components/schemas/ComponentHealth'
+          description: >-
+            valkey, cache, searxng and crawl4ai; empty while status is `refreshing`.
+          additionalProperties:
+            $ref: '#/components/schemas/ComponentHealth'
         version:
           type: string
           pattern: '^[0-9]+\.[0-9]+\.[0-9]+$'
         timestamp:
-          type: string
-          format: date-time
+          type: number
+          description: Unix time (seconds) when this result was measured.
         uptime_seconds:
           type: integer
           minimum: 0
@@ -463,8 +469,8 @@ components:
       properties:
         status:
           type: string
-          enum: [ok, degraded, unhealthy]
-        latency_ms:
+          enum: [ok, down]
+        response_time_ms:
           oneOf:
             - type: integer
               minimum: 0
@@ -472,10 +478,4 @@ components:
         error:
           oneOf:
             - type: string
-              maxLength: 200
-            - type: 'null'
-        last_success:
-          oneOf:
-            - type: string
-              format: date-time
             - type: 'null'

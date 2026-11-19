@@ -422,7 +422,7 @@ _Health check endpoint for monitoring / orchestration._
 - `BS_MAX_RESULTS`: default 10; max 25.
 - `BS_MAX_CONCURRENT_EXTRACTIONS`: default 4.
 - `BS_EXTRACTION_TIMEOUT_MS`: default 2500.
-- `BS_REQUEST_TIMEOUT_MS`: default 6000 (end-to-end budget).
+- `BS_REQUEST_TIMEOUT_MS`: default 6000; upper bound on any one extraction attempt's budget, not an end-to-end deadline (see README "Timeouts").
 - `BS_LOG_LEVEL`: default `info`.
 - `BS_ALLOWED_DOMAINS` / `BS_BLOCKED_DOMAINS`: comma-separated lists.
 - `BS_RATE_LIMIT_ALGO`: default `sliding_window`.
@@ -430,7 +430,7 @@ _Health check endpoint for monitoring / orchestration._
 - `BS_ENABLE_METRICS`: default true.
 - `BS_FALLBACK_ENABLED`: default true.
 - `BS_FALLBACK_MAX_WORKERS`: default 2 (threadpool for Trafilatura).
-- `BS_FALLBACK_TIMEOUT_MS`: default 2000.
+- `BS_FALLBACK_TIMEOUT_MS`: default 3000; covers the fallback's slot wait, fetch and parse together, and never exceeds the caller's `extract_timeout_ms`.
 
 ### 7.2 Production Considerations  
 (_Out of Scope for v0.1 Implementation, but Documented_)

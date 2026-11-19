@@ -37,7 +37,10 @@ class Settings(BaseSettings):
     BS_MAX_RESULTS: int = 10
     BS_MAX_CONCURRENT_EXTRACTIONS: int = 4
     BS_EXTRACTION_TIMEOUT_MS: int = 2500
-    BS_FALLBACK_TIMEOUT_MS: int = 2000
+    # Fallback budget per page; never more than the caller's extract_timeout_ms. Replay
+    # 2026-11-19 (60 pages): 2000 lost 3-5 more pages than the old fallback when Crawl4AI
+    # was busy or down; 3000 recovered most of them (p95 +0.3-0.6 s).
+    BS_FALLBACK_TIMEOUT_MS: int = 3000
     BS_REQUEST_TIMEOUT_MS: int = 6000
 
     # Observability

@@ -94,7 +94,9 @@ class ExtractionStrategy:
             )
 
             if not (self.fallback_enabled and self.trafilatura):
-                return _failed(url, str(crawl_error), failure)
+                # Load shedding (busy, a TimeoutError subclass) is not a timeout of this page.
+                timed_out = failure == "page" and isinstance(crawl_error, TimeoutError)
+                return _failed(url, "timeout" if timed_out else str(crawl_error), failure)
 
             try:
                 result = await self.trafilatura.extract(url, request_id, timeout_ms=timeout_ms)
@@ -113,7 +115,7 @@ class ExtractionStrategy:
                     success=False,
                     reason="timeout" if is_timeout else "error",
                 )
-                return _failed(url, "Both extractors failed", failure)
+                return _failed(url, "timeout" if is_timeout else "Both extractors failed", failure)
 
             metrics_service.record_extraction(
                 extractor="trafilatura",

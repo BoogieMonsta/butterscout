@@ -86,7 +86,15 @@ See `.env.example` for all available configuration options.
 
 ## Defaults & Limits
 - `max_results`: default 10, max 25
-- Timeouts: SearXNG 2s (+1 retry), Crawl4AI 2.5s, fallback 2s, request budget 6s
+- Timeouts, per page: Crawl4AI gets `extract_timeout_ms` (2.5 s) plus 1 s to send its answer;
+  a page it fails on goes to the fallback (Trafilatura) with up to min(`extract_timeout_ms`,
+  `BS_FALLBACK_TIMEOUT_MS` = 3 s) for waiting, fetching and parsing together. That is about
+  6 s worst case by default, ~2 s at 500 ms, ~10 s at 6000 ms. SearXNG (2 s, +1 retry) runs
+  first, and search waits for its slowest page; there is no request-wide deadline.
+- Fallback pages: at most 5 MB, no compression (`Accept-Encoding: identity`; compressed
+  answers are refused, since decoding happens before any size check), at most 5 redirects.
+  At most 2 x `BS_FALLBACK_MAX_WORKERS` fallback extractions at once; a parse keeps its slot
+  until its thread finishes, even after its caller gave up.
 - Rate limits: 60 req/hr per IP; 600 req/hr per API key; optional global 10k/hr
 - Extraction concurrency: 8 Crawl4AI pages at once across all requests in the compose files
   (`BS_MAX_CONCURRENT_EXTRACTIONS`, about 2 per Crawl4AI CPU); a page that waits past its

@@ -137,3 +137,13 @@ async def app_client() -> AsyncGenerator[TestClient, None]:
 
     with TestClient(app) as client:
         yield client
+
+
+@pytest.fixture(autouse=True)
+def _fresh_health_snapshot() -> Iterator[None]:
+    """/health caches its last result for a cooldown; every test starts without one."""
+    from butterscout.routers.health import _snapshot
+
+    _snapshot.reset()
+    yield
+    _snapshot.reset()

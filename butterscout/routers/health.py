@@ -47,14 +47,67 @@ async def liveness() -> dict[str, str]:
     return {"status": "alive"}
 
 
+# /health is public and its Crawl4AI check renders a page in a real browser, so a flood
+# of calls must not become a flood of renders. One refresh runs at a time; after it ends
+# (however it ends) the next one waits this long, and callers get the last snapshot.
+REFRESH_COOLDOWN_SECONDS = 10.0
+
+
+class _Snapshot:
+    """The last /health result and when the next refresh may start (one per process)."""
+
+    def __init__(self) -> None:
+        self.reset()
+
+    def reset(self) -> None:
+        self.result: Optional[tuple[HealthResponse, int]] = None
+        self.refreshing = False
+        self.next_refresh_at = 0.0
+
+
+_snapshot = _Snapshot()
+
+
 @router.get("/health", response_model=HealthResponse)
 async def health_check(response: Response) -> HealthResponse:
     """
-    Health check endpoint.
+    Health check endpoint, refreshed at most once per REFRESH_COOLDOWN_SECONDS.
 
     Returns 200 if all components are OK
-    Returns 503 if any component is degraded/down
+    Returns 503 if any component is degraded/down, or while no recent result exists
     """
+    if _snapshot.refreshing or time.monotonic() < _snapshot.next_refresh_at:
+        if _snapshot.result is None:
+            response.status_code = 503
+            return HealthResponse(
+                status="refreshing",
+                components={},
+                version="0.1.0",
+                uptime_seconds=int(time.time() - startup_time),
+                timestamp=time.time(),
+            )
+        body, status_code = _snapshot.result
+        response.status_code = status_code
+        return body
+
+    # Reserve the refresh before any await, so concurrent callers never start a second one.
+    _snapshot.refreshing = True
+    try:
+        body, status_code = await _run_checks()
+        _snapshot.result = (body, status_code)
+    except BaseException:
+        # Cancelled (e.g. the caller left): do not keep serving an older snapshot forever.
+        _snapshot.result = None
+        raise
+    finally:
+        _snapshot.refreshing = False
+        _snapshot.next_refresh_at = time.monotonic() + REFRESH_COOLDOWN_SECONDS
+    response.status_code = status_code
+    return body
+
+
+async def _run_checks() -> tuple[HealthResponse, int]:
+    """Check every dependency in parallel; return the response and its HTTP status."""
     # Import here to avoid circular import
     from butterscout.main import app_state
 
@@ -65,7 +118,7 @@ async def health_check(response: Response) -> HealthResponse:
     valkey_task = asyncio.create_task(_check_valkey(timeout_seconds))
     cache_task = asyncio.create_task(_check_cache(timeout_seconds))
     searxng_task = asyncio.create_task(_check_searxng(timeout_seconds))
-    crawl4ai_task = asyncio.create_task(_check_crawl4ai(timeout_seconds))
+    crawl4ai_task = asyncio.create_task(_check_crawl4ai())
 
     results = await asyncio.gather(
         valkey_task,
@@ -102,27 +155,20 @@ async def health_check(response: Response) -> HealthResponse:
 
     # Determine overall status
     all_ok = all(c.status == "ok" for c in components.values())
-    any_down = any(c.status == "down" for c in components.values())
 
-    if all_ok:
-        overall_status = "healthy"
-        response.status_code = 200
-    elif any_down:
-        overall_status = "degraded"
-        response.status_code = 503
-    else:
-        overall_status = "degraded"
-        response.status_code = 503
+    overall_status = "healthy" if all_ok else "degraded"
+    status_code = 200 if all_ok else 503
 
     uptime_seconds = int(time.time() - startup_time)
 
-    return HealthResponse(
+    body = HealthResponse(
         status=overall_status,
         components=components,
         version="0.1.0",
         uptime_seconds=uptime_seconds,
         timestamp=time.time(),
     )
+    return body, status_code
 
 
 async def _check_valkey(timeout: float) -> ComponentStatus:
@@ -169,14 +215,14 @@ async def _check_searxng(timeout: float) -> ComponentStatus:
         return ComponentStatus(status="down", error=str(e))
 
 
-async def _check_crawl4ai(timeout: float) -> ComponentStatus:
-    """Check Crawl4AI health."""
+async def _check_crawl4ai() -> ComponentStatus:
+    """Check Crawl4AI health. The client's probe enforces BS_HEALTH_TIMEOUT_MS itself;
+    a second timer here would cancel it first and hide its reason."""
     from butterscout.main import app_state
 
     start = time.perf_counter()
     try:
-        async with asyncio.timeout(timeout):
-            is_healthy = await app_state.crawl4ai_client.health_check()
+        is_healthy = await app_state.crawl4ai_client.health_check()
 
         response_time_ms = int((time.perf_counter() - start) * 1000)
 

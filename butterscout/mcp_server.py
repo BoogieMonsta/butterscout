@@ -102,7 +102,16 @@ async def butterscout_search(
         bool, Field(description="Extract page text for each result (slower).")
     ] = True,
     extract_timeout_ms: Annotated[
-        int, Field(ge=500, le=6000, description="Per-page extraction timeout.")
+        int,
+        Field(
+            ge=500,
+            le=6000,
+            description=(
+                "Per-page budget for Crawl4AI. A page Crawl4AI fails on goes to a fallback "
+                "extractor with up to min(this, the server's fallback budget, 3000 ms by "
+                "default) more, so one page can take about this + 1 s + the fallback budget."
+            ),
+        ),
     ] = 2500,
     domains: Annotated[
         Optional[list[str]], Field(max_length=20, description="Only these domains.")
@@ -196,7 +205,15 @@ async def butterscout_extract(
     url: Annotated[str, Field(description="Public http or https URL.")],
     ctx: Context[Any, Any],
     extract_timeout_ms: Annotated[
-        int, Field(ge=500, le=6000, description="Extraction timeout.")
+        int,
+        Field(
+            ge=500,
+            le=6000,
+            description=(
+                "Budget for Crawl4AI; the fallback extractor then gets up to min(this, the "
+                "server's fallback budget). Total can be about this + 1 s + the fallback budget."
+            ),
+        ),
     ] = 2500,
     max_characters: Annotated[
         int, Field(ge=1000, le=80000, description="Clip content to this many characters.")

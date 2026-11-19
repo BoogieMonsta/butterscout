@@ -11,6 +11,7 @@ from httpx import Response
 from prometheus_client import REGISTRY
 from pydantic import HttpUrl, TypeAdapter
 
+from butterscout.clients import trafilatura_client as trafilatura_module
 from butterscout.clients.crawl4ai_client import (
     Crawl4AIBusyError,
     Crawl4AIClient,
@@ -148,7 +149,7 @@ async def test_trafilatura_extraction() -> None:
     await client.connect()
 
     try:
-        content = client._extract_sync(html)
+        content = trafilatura_module._parse(html)
         assert content is not None
         assert len(content) > 0
         # Trafilatura should extract main content
@@ -418,3 +419,25 @@ async def test_strategy_records_why_crawl4ai_failed(
     assert result.crawl4ai_failure == failure
     after = REGISTRY.get_sample_value("butterscout_extraction_failures_total", labels)
     assert after == before + 1
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (Crawl4AIBusyError("Crawl4AI refused for load (HTTP 429)"), "busy"),
+        (TimeoutError("slow page"), "timeout"),
+    ],
+)
+async def test_without_fallback_only_a_page_timeout_reads_as_timeout(
+    settings: Settings, error: Exception, expected: str
+) -> None:
+    """Load shedding (busy) subclasses TimeoutError but is not this page timing out."""
+
+    class FakeCrawl4AI:
+        async def extract(self, *args: object, **kwargs: object) -> ExtractedContent:
+            raise error
+
+    settings.BS_FALLBACK_ENABLED = False
+    strategy = ExtractionStrategy(cast(Crawl4AIClient, FakeCrawl4AI()), None, settings)
+    result = await strategy.extract(_url("https://example.com"), "req")
+    assert (result.error == "timeout") is (expected == "timeout")
