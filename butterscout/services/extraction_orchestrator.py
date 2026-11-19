@@ -131,10 +131,13 @@ class ExtractionOrchestrator:
         """
         async with self.semaphore:
             try:
+                # Search results are clipped, so prune page chrome first;
+                # otherwise menus can fill the clip before the real content.
                 return await self.extraction_strategy.extract(
                     url,
                     request_id,
                     timeout_ms=timeout_ms,
+                    markdown_filter="fit",
                 )
             except Exception as e:
                 logger.error(

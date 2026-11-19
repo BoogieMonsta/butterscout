@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Optional
+from typing import Literal, Optional
 
 import httpx
 import structlog
@@ -13,6 +13,10 @@ from butterscout.config import Settings
 from butterscout.models.internal import ExtractedContent
 
 logger = structlog.get_logger()
+
+# Crawl4AI /md filter: "raw" is the whole page; "fit" prunes nav, footers and
+# other low-text blocks. Fit can also drop link lists and short bullet lists.
+MarkdownFilter = Literal["raw", "fit"]
 
 
 class Crawl4AIClient:
@@ -50,6 +54,7 @@ class Crawl4AIClient:
         url: HttpUrl,
         request_id: str,
         timeout_ms: Optional[int] = None,
+        markdown_filter: MarkdownFilter = "raw",
     ) -> ExtractedContent:
         """
         Extract content from URL using Crawl4AI.
@@ -57,6 +62,7 @@ class Crawl4AIClient:
         Args:
             url: URL to extract
             request_id: Request ID for logging
+            markdown_filter: Crawl4AI markdown mode ("raw" or "fit")
 
         Returns:
             ExtractedContent with markdown/text content
@@ -85,7 +91,7 @@ class Crawl4AIClient:
                 f"{self.base_url}/md",
                 json={
                     "url": str(url),
-                    "f": "raw",
+                    "f": markdown_filter,
                 },
                 timeout=httpx.Timeout(
                     connect=5.0,

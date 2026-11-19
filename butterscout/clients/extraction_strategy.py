@@ -7,7 +7,7 @@ from typing import Optional
 import structlog
 from pydantic import HttpUrl
 
-from butterscout.clients.crawl4ai_client import Crawl4AIClient
+from butterscout.clients.crawl4ai_client import Crawl4AIClient, MarkdownFilter
 from butterscout.clients.trafilatura_client import TrafilaturaClient
 from butterscout.config import Settings
 from butterscout.models.internal import ExtractedContent
@@ -34,6 +34,7 @@ class ExtractionStrategy:
         url: HttpUrl,
         request_id: str,
         timeout_ms: int | None = None,
+        markdown_filter: MarkdownFilter = "raw",
     ) -> ExtractedContent:
         """
         Extract content with fallback strategy.
@@ -43,13 +44,16 @@ class ExtractionStrategy:
         Args:
             url: URL to extract
             request_id: Request ID for logging
+            markdown_filter: Crawl4AI markdown mode; Trafilatura ignores it
 
         Returns:
             ExtractedContent with extraction results (always returns, never raises)
         """
         # Try Crawl4AI first
         try:
-            result = await self.crawl4ai.extract(url, request_id, timeout_ms=timeout_ms)
+            result = await self.crawl4ai.extract(
+                url, request_id, timeout_ms=timeout_ms, markdown_filter=markdown_filter
+            )
             # Record metrics
             metrics_service.record_extraction(
                 extractor="crawl4ai",

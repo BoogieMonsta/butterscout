@@ -58,6 +58,29 @@ async def test_crawl4ai_success(settings: Settings) -> None:
 
 
 @pytest.mark.asyncio
+@respx.mock
+async def test_extraction_strategy_sends_fit_filter_to_crawl4ai(settings: Settings) -> None:
+    """The strategy forwards markdown_filter to Crawl4AI's /md request."""
+    route = respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
+        return_value=Response(200, json={"markdown": "Main article text only.", "success": True})
+    )
+
+    crawl4ai = Crawl4AIClient(settings)
+    strategy = ExtractionStrategy(crawl4ai, None, settings)
+    await crawl4ai.connect()
+
+    try:
+        result = await strategy.extract(
+            _validated_url("https://example.com"), "test-fit", markdown_filter="fit"
+        )
+
+        assert result.extraction_ok is True
+        assert json.loads(route.calls.last.request.content)["f"] == "fit"
+    finally:
+        await crawl4ai.disconnect()
+
+
+@pytest.mark.asyncio
 async def test_extraction_strategy_fallback_used(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -65,7 +88,11 @@ async def test_extraction_strategy_fallback_used(
 
     class FakeCrawl4AI:
         async def extract(
-            self, url: HttpUrl, request_id: str, timeout_ms: int | None = None
+            self,
+            url: HttpUrl,
+            request_id: str,
+            timeout_ms: int | None = None,
+            markdown_filter: str = "raw",
         ) -> ExtractedContent:
             raise RuntimeError("crawl failure")
 
@@ -107,7 +134,11 @@ async def test_extraction_strategy_no_fallback() -> None:
 
     class FakeCrawl4AI:
         async def extract(
-            self, url: HttpUrl, request_id: str, timeout_ms: int | None = None
+            self,
+            url: HttpUrl,
+            request_id: str,
+            timeout_ms: int | None = None,
+            markdown_filter: str = "raw",
         ) -> ExtractedContent:
             raise RuntimeError("crawl failure")
 

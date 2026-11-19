@@ -7,7 +7,7 @@ from typing import Optional, cast
 
 from pydantic import HttpUrl
 
-from butterscout.clients.crawl4ai_client import Crawl4AIClient
+from butterscout.clients.crawl4ai_client import Crawl4AIClient, MarkdownFilter
 from butterscout.clients.redis_client import ValkeyClient
 from butterscout.clients.searxng_client import SearXNGClient
 from butterscout.clients.trafilatura_client import TrafilaturaClient
@@ -100,6 +100,7 @@ class StubCrawl4AIClient(Crawl4AIClient):
         url: HttpUrl,
         request_id: str,
         timeout_ms: int | None = None,
+        markdown_filter: MarkdownFilter = "raw",
     ) -> ExtractedContent:
         return ExtractedContent(
             url=url,

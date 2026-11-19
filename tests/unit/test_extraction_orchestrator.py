@@ -29,6 +29,7 @@ async def test_orchestrator_parallel_extraction(settings: Settings) -> None:
         url: HttpUrl,
         req_id: str,
         timeout_ms: int | None = None,
+        markdown_filter: str = "raw",
     ) -> ExtractedContent:
         return ExtractedContent(
             url=url,
@@ -109,6 +110,7 @@ async def test_orchestrator_mixed_success_failure(settings: Settings) -> None:
         url: HttpUrl,
         req_id: str,
         timeout_ms: int | None = None,
+        markdown_filter: str = "raw",
     ) -> ExtractedContent:
         nonlocal call_count
         call_count += 1
@@ -174,6 +176,7 @@ async def test_orchestrator_respects_semaphore(settings: Settings) -> None:
         url: HttpUrl,
         req_id: str,
         timeout_ms: int | None = None,
+        markdown_filter: str = "raw",
     ) -> ExtractedContent:
         nonlocal current_concurrent, max_concurrent_seen
 
@@ -241,6 +244,7 @@ async def test_orchestrator_logs_metrics(settings: Settings, caplog: LogCaptureF
         url: HttpUrl,
         req_id: str,
         timeout_ms: int | None = None,
+        markdown_filter: str = "raw",
     ) -> ExtractedContent:
         return ExtractedContent(
             url=url,
@@ -279,7 +283,7 @@ async def test_orchestrator_logs_metrics(settings: Settings, caplog: LogCaptureF
 
 @pytest.mark.asyncio
 async def test_orchestrator_passes_timeout(settings: Settings) -> None:
-    """Ensure per-request timeouts propagate to extraction strategy."""
+    """Ensure per-request timeouts and the fit markdown filter reach the strategy."""
     mock_strategy = AsyncMock()
     mock_strategy.extract = AsyncMock(
         return_value=ExtractedContent(
@@ -302,3 +306,4 @@ async def test_orchestrator_passes_timeout(settings: Settings) -> None:
     mock_strategy.extract.assert_awaited_once()
     _args, kwargs = mock_strategy.extract.await_args
     assert kwargs["timeout_ms"] == 1234
+    assert kwargs["markdown_filter"] == "fit"
