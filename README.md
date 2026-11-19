@@ -34,12 +34,18 @@ Butterscout gives you:
    cd butterscout
    ```
 
-2. **Start all services:**
+2. **Give Crawl4AI an API token** (Crawl4AI 0.9+ refuses API calls without one, and
+   compose stops with an error if it is missing):
+   ```bash
+   echo "BS_CRAWL4AI_API_TOKEN=$(openssl rand -hex 32)" >> .env
+   ```
+
+3. **Start all services:**
    ```bash
    docker compose -f docker-compose.selfhost.yml up -d
    ```
 
-3. **Visit the API documentation:**
+4. **Visit the API documentation:**
    ```
    http://localhost:8000/docs
    ```
@@ -65,6 +71,7 @@ For production deployments, configure via `.env` file:
 cp .env.example .env
 
 # Edit .env and set:
+# - BS_CRAWL4AI_API_TOKEN=$(openssl rand -hex 32)   (required)
 # - REDIS_PASSWORD=$(openssl rand -base64 32)
 # - SEARXNG_SECRET_KEY=$(openssl rand -hex 32)
 # - BS_API_KEY=$(openssl rand -base64 32)
@@ -81,8 +88,35 @@ See `.env.example` for all available configuration options.
 - `max_results`: default 10, max 25
 - Timeouts: SearXNG 2s (+1 retry), Crawl4AI 2.5s, fallback 2s, request budget 6s
 - Rate limits: 60 req/hr per IP; 600 req/hr per API key; optional global 10k/hr
-- Extraction concurrency: 4 URLs per request
-- Cache TTL: 1h (searches with zero results are not cached)
+- Extraction concurrency: 8 Crawl4AI pages at once across all requests in the compose files
+  (`BS_MAX_CONCURRENT_EXTRACTIONS`, about 2 per Crawl4AI CPU); a page that waits past its
+  timeout for a free slot goes to the fallback extractor
+- Cache TTL: 1h. Not cached: searches with zero results, searches where Crawl4AI itself
+  failed, and searches where any result came back without page text
+
+### When extraction is degraded
+
+Butterscout falls back to Trafilatura when Crawl4AI fails, so results keep coming even when
+Crawl4AI is down. To keep that from hiding the failure:
+
+- `/health` renders a tiny inline page through Crawl4AI's browser with the same filter
+  config search uses, so `crawl4ai` shows `down` with a reason (`auth: … check
+  BS_CRAWL4AI_API_TOKEN`, `unreachable`, `api_mismatch: fit markdown is empty …`) when
+  Crawl4AI cannot actually extract, not only when its port is closed. `/health` is for
+  diagnosis; container healthchecks use `/health/live`, so a Crawl4AI outage does not take
+  the API itself offline while the fallback can still serve.
+- Search and extract responses carry factual `warnings` (REST: `metadata.warnings`) when
+  Crawl4AI itself failed (unreachable, token rejected, server errors, request format
+  rejected), when Crawl4AI produced none of 3+ pages for any reason (e.g. starved or
+  throttled), and when at least half the results have no page text. MCP clients are told to
+  pass these on to the user. A page that just waited too long for a free Crawl4AI slot is
+  counted in metrics, not warned about.
+- `butterscout_extraction_failures_total{extractor="crawl4ai"}` counts Crawl4AI failures by
+  reason (`timeout`, `error`, `busy`, `unreachable`, `auth`, …); each one sent a page to the
+  fallback.
+- Crawl4AI keeps working on a page after Butterscout gives up, and some of its waits ignore
+  per-request timeouts. `crawl4ai-config/config.yml` (upstream's config with one change) caps
+  each crawl at 8 s server-side; without it, sustained load made normal pages fail.
 
 ### When search returns nothing or junk
 
@@ -183,8 +217,9 @@ Butterscout can serve the [Model Context Protocol](https://modelcontextprotocol.
 Streamable HTTP at `http://localhost:8000/mcp`, with two read-only tools:
 
 - `butterscout_search`: search + extracted page text (each result clipped to 4,000
-  characters; `content_truncated` marks clipped results; `max_results` is capped at
-  `BS_MAX_RESULTS`). Default 5 results ≈ 20k characters of content; 10 ≈ 40k.
+  characters; `content_truncated` marks clipped results; `warnings` says when extraction was
+  degraded; `max_results` is capped at `BS_MAX_RESULTS`). Default 5 results ≈ 20k characters
+  of content; 10 ≈ 40k.
 - `butterscout_extract`: clean Markdown/text for one public URL (default 20,000 characters,
   up to 80,000).
 

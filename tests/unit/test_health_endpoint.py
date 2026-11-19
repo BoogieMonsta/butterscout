@@ -113,3 +113,41 @@ async def test_health_endpoint_timeout_handling() -> None:
         assert response.status_code == 503
         assert result.components["valkey"].status == "down"
         assert result.components["valkey"].error == "Timeout"
+
+
+@pytest.mark.asyncio
+async def test_health_reports_why_crawl4ai_is_unusable() -> None:
+    """A failed browser probe marks Crawl4AI down with its reason, not just "failed"."""
+    from butterscout.clients.crawl4ai_client import Crawl4AIUnavailableError
+
+    with patch("butterscout.main.app_state") as mock_app_state:
+        mock_app_state.settings = MagicMock(BS_HEALTH_TIMEOUT_MS=750)
+        mock_app_state.redis_client.ping = AsyncMock(return_value=True)
+        mock_app_state.cache_backend.health_check = AsyncMock(return_value=True)
+        mock_app_state.searxng_client.health_check = AsyncMock(return_value=True)
+        mock_app_state.crawl4ai_client.health_check = AsyncMock(
+            side_effect=Crawl4AIUnavailableError("auth", "HTTP 401; check BS_CRAWL4AI_API_TOKEN")
+        )
+        from fastapi import Response
+
+        from butterscout.routers.health import health_check
+
+        response = Response()
+        result = await health_check(response)
+
+    assert result.status == "degraded"
+    assert response.status_code == 503
+    crawl4ai = result.components["crawl4ai"]
+    assert crawl4ai.status == "down"
+    assert crawl4ai.error is not None and "BS_CRAWL4AI_API_TOKEN" in crawl4ai.error
+
+
+def test_liveness_does_not_depend_on_crawl4ai() -> None:
+    """Container healthchecks hit /health/live: Crawl4AI down must not take the API down."""
+    from fastapi.testclient import TestClient
+
+    from butterscout.main import app
+
+    response = TestClient(app).get("/health/live")
+    assert response.status_code == 200
+    assert response.json() == {"status": "alive"}

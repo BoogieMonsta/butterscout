@@ -206,6 +206,13 @@ components:
         extraction_time_ms:
           type: integer
           minimum: 0
+        warnings:
+          type: array
+          description: >-
+            Plain-language notes when extraction was degraded (for example Crawl4AI
+            unreachable or at capacity, so text came from the fallback extractor).
+          items:
+            type: string
 
     SearchRequest:
       type: object
@@ -373,6 +380,15 @@ components:
           pattern: '^v[0-9]+$'
         rate_limited:
           type: boolean
+        warnings:
+          type: array
+          description: >-
+            Plain-language notes when extraction was degraded: Crawl4AI itself failed, Crawl4AI
+            produced none of several pages, or at least half the results have no page text.
+            Responses where Crawl4AI itself failed, or where any result has no page text, are
+            not cached.
+          items:
+            type: string
 
     ErrorResponse:
       type: object

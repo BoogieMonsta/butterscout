@@ -11,6 +11,7 @@ services:
       - BS_REDIS_URL=redis://default:${REDIS_PASSWORD:-changeme}@redis:6379/0
       - BS_SEARXNG_URL=http://searxng:8080
       - BS_CRAWL4AI_URL=http://crawl4ai:11235
+      - BS_CRAWL4AI_API_TOKEN=${BS_CRAWL4AI_API_TOKEN:?Set BS_CRAWL4AI_API_TOKEN in .env (e.g. openssl rand -hex 32); Crawl4AI 0.9+ refuses API calls without it}
       
       # Cache configuration
       - BS_CACHE_TYPE=redis
@@ -65,7 +66,7 @@ services:
         hard: 65535
     # Explicit healthcheck (also defined in Dockerfile, but here for visibility and tunability)
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
       interval: 30s
       timeout: 3s
       retries: 3
@@ -150,11 +151,15 @@ services:
   crawl4ai:
     # Pinned to specific version for production stability
     # Update: Check https://hub.docker.com/r/unclecode/crawl4ai/tags or https://github.com/unclecode/crawl4ai/releases
-    image: unclecode/crawl4ai:0.7.6
+    image: unclecode/crawl4ai:0.9.5
     container_name: butterscout-crawl4ai
+    volumes:
+      # Upstream config with a short per-crawl deadline; see the file's header.
+      - ../crawl4ai-config/config.yml:/app/config.yml:ro
     restart: always
     environment:
-      - CRAWL4AI_API_TOKEN=${CRAWL4AI_API_TOKEN:-}
+      # 0.9+ answers its API only with a token; Butterscout sends the same one.
+      - CRAWL4AI_API_TOKEN=${BS_CRAWL4AI_API_TOKEN:?Set BS_CRAWL4AI_API_TOKEN in .env (e.g. openssl rand -hex 32); Crawl4AI 0.9+ refuses API calls without it}
     shm_size: "2gb"  # Important for browser automation
     networks:
       - butterscout-network
@@ -171,7 +176,7 @@ services:
         soft: 65535
         hard: 65535
     healthcheck:
-      test: ["CMD", "python", "-c", "import http.client; http.client.HTTPConnection('localhost', 11235, timeout=5).connect()"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:11235/health', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 3

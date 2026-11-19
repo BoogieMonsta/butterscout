@@ -36,6 +36,17 @@ class HealthResponse(BaseModel):
     timestamp: float
 
 
+@router.get("/health/live")
+async def liveness() -> dict[str, str]:
+    """The API process is up. For container healthchecks.
+
+    /health checks every dependency and returns 503 when one is down. A container
+    healthcheck on it marks the API unhealthy (and a proxy may stop routing to it) when
+    only Crawl4AI is down, although search still works through the fallback extractor.
+    """
+    return {"status": "alive"}
+
+
 @router.get("/health", response_model=HealthResponse)
 async def health_check(response: Response) -> HealthResponse:
     """

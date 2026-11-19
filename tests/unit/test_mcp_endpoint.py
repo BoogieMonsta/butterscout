@@ -97,42 +97,33 @@ def test_tools_list_exposes_both_tools_with_schemas() -> None:
     assert tools["butterscout_search"]["annotations"]["readOnlyHint"] is True
 
 
-def test_search_tool_returns_clipped_structured_results() -> None:
-    long_text = "word " * 3000  # 15000 chars
+def _search_one_page(
+    query: str, content: str, crawl4ai_failure: Optional[str] = None
+) -> dict[str, Any]:
+    """Run the search tool with SearXNG and extraction stubbed to return one page."""
+    url = HttpUrl("https://fastapi.tiangolo.com/")
+    page = NormalizedSearchResult(title="FastAPI", url=url, snippet="FastAPI framework", score=0.9)
+    extracted = ExtractedContent(
+        url=url,
+        content=content,
+        word_count=len(content.split()),
+        extracted_by="crawl4ai",
+        extraction_ok=True,
+        extraction_time_ms=5,
+        crawl4ai_failure=crawl4ai_failure,  # type: ignore[arg-type]
+    )
     with mcp_client() as client:
         with (
+            patch.object(app_state.searxng_client, "search", AsyncMock(return_value=[page])),
             patch.object(
-                app_state.searxng_client,
-                "search",
-                AsyncMock(
-                    return_value=[
-                        NormalizedSearchResult(
-                            title="FastAPI",
-                            url=HttpUrl("https://fastapi.tiangolo.com/"),
-                            snippet="FastAPI framework",
-                            score=0.9,
-                        )
-                    ]
-                ),
-            ),
-            patch.object(
-                app_state.extraction_strategy,
-                "extract",
-                AsyncMock(
-                    return_value=ExtractedContent(
-                        url=HttpUrl("https://fastapi.tiangolo.com/"),
-                        content=long_text,
-                        word_count=3000,
-                        extracted_by="crawl4ai",
-                        extraction_ok=True,
-                        extraction_time_ms=5,
-                    )
-                ),
+                app_state.extraction_strategy, "extract", AsyncMock(return_value=extracted)
             ),
         ):
-            result = call_tool(
-                client, "butterscout_search", {"query": "fastapi docs", "max_results": 2}
-            )
+            return call_tool(client, "butterscout_search", {"query": query, "max_results": 2})
+
+
+def test_search_tool_returns_clipped_structured_results() -> None:
+    result = _search_one_page("fastapi docs", "word " * 3000)  # 15000 chars
     assert result["isError"] is False
     data = result["structuredContent"]
     assert data["query"] == "fastapi docs"
@@ -141,6 +132,14 @@ def test_search_tool_returns_clipped_structured_results() -> None:
     assert first["url"] == "https://fastapi.tiangolo.com/"
     assert len(first["content"]) == 4000
     assert first["content_truncated"] is True
+
+
+def test_search_tool_passes_degradation_warnings_to_the_agent() -> None:
+    content = "Fallback text about fastapi docs, long enough to keep."
+    healthy = _search_one_page("fastapi docs", content)["structuredContent"]
+    degraded = _search_one_page("fastapi docs", content, "unreachable")["structuredContent"]
+    assert healthy["warnings"] == []
+    assert degraded["warnings"] and "could not be reached" in degraded["warnings"][0]
 
 
 def test_search_tool_caps_max_results_at_server_limit() -> None:

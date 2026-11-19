@@ -30,6 +30,7 @@ async def test_complete_extraction_flow(settings: Settings) -> None:
         url: HttpUrl,
         req_id: str,
         timeout_ms: int | None = None,
+        markdown_filter: str = "raw",
     ) -> ExtractedContent:
         # Simulate different outcomes for different URLs
         url_str = str(url)
@@ -134,6 +135,7 @@ async def test_large_batch_extraction(settings: Settings) -> None:
         url: HttpUrl,
         req_id: str,
         timeout_ms: int | None = None,
+        markdown_filter: str = "raw",
     ) -> ExtractedContent:
         # Add small delay to simulate real work
         await asyncio.sleep(0.01)
@@ -234,6 +236,7 @@ async def test_content_optional_flag(settings: Settings) -> None:
         url: HttpUrl,
         req_id: str,
         timeout_ms: int | None = None,
+        markdown_filter: str = "raw",
     ) -> ExtractedContent:
         return ExtractedContent(
             url=url,
@@ -292,6 +295,7 @@ async def test_partial_failure_graceful_degradation(settings: Settings) -> None:
         url: HttpUrl,
         req_id: str,
         timeout_ms: int | None = None,
+        markdown_filter: str = "raw",
     ) -> ExtractedContent:
         nonlocal call_count
         call_count += 1

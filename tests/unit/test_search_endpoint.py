@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import HttpUrl
 
-from butterscout.models.internal import NormalizedSearchResult
+from butterscout.models.internal import ExtractedContent, NormalizedSearchResult
 from butterscout.models.responses import (
     ResponseMetadata,
     SearchResponse,
@@ -496,4 +496,56 @@ async def test_search_caches_only_non_empty_responses(
 
     assert response.status_code == 200
     assert len(response.json()["results"]) == result_count
+    assert mock_app_state.cache_service.set.await_count == (1 if cached else 0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("crawl4ai_failure", "has_text", "warned", "cached"),
+    [
+        (None, True, False, True),
+        ("page", True, False, True),  # one page failed in Crawl4AI, fallback had text
+        ("busy", True, False, True),  # at capacity: metrics only
+        ("unreachable", True, True, False),  # Crawl4AI down: say so, don't pin it
+        ("page", False, True, False),  # no page text at all: say so, don't pin it
+    ],
+)
+async def test_degraded_extraction_is_reported_and_not_cached(
+    mock_app_state: MagicMock,
+    crawl4ai_failure: str | None,
+    has_text: bool,
+    warned: bool,
+    cached: bool,
+) -> None:
+    """Warnings and cache eligibility follow what extraction actually returned."""
+    from butterscout.main import app
+
+    url = HttpUrl("https://example.com/")
+    mock_app_state.settings.BS_REQUEST_TIMEOUT_MS = 6000
+    mock_app_state.searxng_client.search = AsyncMock(
+        return_value=[NormalizedSearchResult(title="R", url=url, snippet="s", score=1.0)]
+    )
+    text = "Fallback text with enough words to pass the quality filter easily here."
+    extracted = ExtractedContent(
+        url=url,
+        content=text if has_text else "",
+        word_count=12 if has_text else 0,
+        extracted_by=("crawl4ai" if crawl4ai_failure is None else "trafilatura")
+        if has_text
+        else "none",
+        extraction_ok=has_text,
+        extraction_time_ms=5,
+        crawl4ai_failure=crawl4ai_failure,  # type: ignore[arg-type]
+    )
+
+    with patch("butterscout.services.search_service.RateLimiter") as mock_limiter_class:
+        mock_limiter = mock_limiter_class.return_value
+        mock_limiter.check_rate_limit = AsyncMock(return_value=(True, None, 59, 60, 1234567890))
+        with patch("butterscout.services.search_service.ExtractionOrchestrator") as orch_class:
+            orch_class.return_value.extract_all = AsyncMock(return_value=[extracted])
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.post("/api/v1/search", json={"query": "test query"})
+
+    assert response.status_code == 200
+    assert bool(response.json()["metadata"]["warnings"]) is warned
     assert mock_app_state.cache_service.set.await_count == (1 if cached else 0)

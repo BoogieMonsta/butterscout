@@ -24,6 +24,11 @@ from butterscout.models.responses import ResponseMetadata, SearchResponse
 from butterscout.services.cache_service import CacheService
 from butterscout.services.deduplicator import URLDeduplicator
 from butterscout.services.extraction_orchestrator import ExtractionOrchestrator
+from butterscout.services.extraction_warnings import (
+    crawl4ai_warnings,
+    has_crawl4ai_fault,
+    missing_text_warnings,
+)
 from butterscout.services.ranker import Ranker
 from butterscout.services.rate_limiter import RateLimiter
 from butterscout.services.result_assembler import ResultAssembler
@@ -228,6 +233,8 @@ class SearchService:
 
         # 8. Extract Content (if requested)
         extraction_time_ms: Optional[int] = 0 if request_body.include_content else None
+        warnings: list[str] = []
+        crawl4ai_fault = False
         if request_body.include_content and deduplicated_results:
             extraction_start = time.perf_counter()
             effective_extract_timeout_ms = min(
@@ -247,6 +254,8 @@ class SearchService:
             )
 
             extraction_time_ms = int((time.perf_counter() - extraction_start) * 1000)
+            warnings = crawl4ai_warnings(extracted_contents)
+            crawl4ai_fault = has_crawl4ai_fault(extracted_contents)
             if request_state and hasattr(request_state, "extraction_time_ms"):
                 request_state.extraction_time_ms = extraction_time_ms
 
@@ -274,6 +283,15 @@ class SearchService:
         if request_state and hasattr(request_state, "url_count"):
             request_state.url_count = len(ranked_results)
 
+        # Count the page text the caller actually gets back.
+        missing_text = False
+        if request_body.include_content:
+            with_text = sum(1 for r in ranked_results if r.content)
+            missing_text = with_text < len(ranked_results)
+            warnings += missing_text_warnings(with_text, len(ranked_results))
+        if warnings:
+            logger.warning("search_extraction_degraded", request_id=request_id, warnings=warnings)
+
         # 11. Build Response
         total_time_ms = int((time.perf_counter() - start_time) * 1000)
 
@@ -287,16 +305,26 @@ class SearchService:
                 cache_hit=False,
                 sources_queried=["searxng"],
                 rate_limited=False,
+                warnings=warnings,
             ),
         )
 
         # 12. Cache Response. Zero results almost always means the engines were blocked,
         # suspended or timed out, not that the web has nothing; caching it would serve that
-        # failure for the whole TTL. Retrying costs one more SearXNG call.
-        if ranked_results:
-            await self.cache_service.set(request_body, response, request_id)
-        else:
+        # failure for the whole TTL. Retrying costs one more SearXNG call. The same goes for
+        # a Crawl4AI fault or a result that came back without page text: caching would pin
+        # the failure for an hour after the cause is gone.
+        if not ranked_results:
             logger.info("search_cache_skipped_empty", request_id=request_id)
+        elif crawl4ai_fault or missing_text:
+            logger.info(
+                "search_cache_skipped_degraded",
+                request_id=request_id,
+                crawl4ai_fault=crawl4ai_fault,
+                missing_text=missing_text,
+            )
+        else:
+            await self.cache_service.set(request_body, response, request_id)
 
         logger.info(
             "search_request_complete",

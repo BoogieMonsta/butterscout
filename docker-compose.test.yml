@@ -82,8 +82,9 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 512M
+          # Headless Chromium idles above 512 MB; less than this crashes, not slows.
+          cpus: '2.0'
+          memory: 2048M
         reservations:
           cpus: '0.1'
           memory: 128M

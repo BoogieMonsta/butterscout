@@ -20,7 +20,12 @@ logger = structlog.get_logger()
 
 
 class ExtractionOrchestrator:
-    """Orchestrates parallel content extraction with concurrency control."""
+    """Extracts all of a search's result pages in parallel.
+
+    Concurrency is capped by the shared Crawl4AI client (BS_MAX_CONCURRENT_EXTRACTIONS
+    across every request), not here: a per-search cap multiplied with each concurrent
+    search and overloaded Crawl4AI.
+    """
 
     def __init__(
         self,
@@ -35,8 +40,6 @@ class ExtractionOrchestrator:
         """
         self.extraction_strategy = extraction_strategy
         self.settings = settings
-        self.max_concurrent = settings.BS_MAX_CONCURRENT_EXTRACTIONS
-        self.semaphore = asyncio.Semaphore(self.max_concurrent)
 
     async def extract_all(
         self,
@@ -59,14 +62,10 @@ class ExtractionOrchestrator:
             "extraction_orchestrator_start",
             request_id=request_id,
             url_count=len(search_results),
-            max_concurrent=self.max_concurrent,
         )
 
         # Create extraction tasks
-        tasks = [
-            self._extract_with_semaphore(result.url, request_id, timeout_ms)
-            for result in search_results
-        ]
+        tasks = [self._extract_one(result.url, request_id, timeout_ms) for result in search_results]
 
         # Execute all tasks concurrently
         extracted_contents: list[Union[ExtractedContent, BaseException]] = await asyncio.gather(
@@ -114,13 +113,13 @@ class ExtractionOrchestrator:
 
         return results
 
-    async def _extract_with_semaphore(
+    async def _extract_one(
         self,
         url: HttpUrl,
         request_id: str,
         timeout_ms: int | None,
     ) -> ExtractedContent:
-        """Extract single URL with semaphore for concurrency control.
+        """Extract a single URL.
 
         Args:
             url: URL to extract
@@ -129,29 +128,28 @@ class ExtractionOrchestrator:
         Returns:
             ExtractedContent (never raises, returns failed result on error)
         """
-        async with self.semaphore:
-            try:
-                # Search results are clipped, so prune page chrome first;
-                # otherwise menus can fill the clip before the real content.
-                return await self.extraction_strategy.extract(
-                    url,
-                    request_id,
-                    timeout_ms=timeout_ms,
-                    markdown_filter="fit",
-                )
-            except Exception as e:
-                logger.error(
-                    "extraction_orchestrator_error",
-                    request_id=request_id,
-                    url=url,
-                    error=str(e),
-                )
-                return ExtractedContent(
-                    url=url,
-                    content="",
-                    word_count=0,
-                    extracted_by="none",
-                    extraction_ok=False,
-                    extraction_time_ms=0,
-                    error=str(e),
-                )
+        try:
+            # Search results are clipped, so prune page chrome first;
+            # otherwise menus can fill the clip before the real content.
+            return await self.extraction_strategy.extract(
+                url,
+                request_id,
+                timeout_ms=timeout_ms,
+                markdown_filter="fit",
+            )
+        except Exception as e:
+            logger.error(
+                "extraction_orchestrator_error",
+                request_id=request_id,
+                url=url,
+                error=str(e),
+            )
+            return ExtractedContent(
+                url=url,
+                content="",
+                word_count=0,
+                extracted_by="none",
+                extraction_ok=False,
+                extraction_time_ms=0,
+                error=str(e),
+            )

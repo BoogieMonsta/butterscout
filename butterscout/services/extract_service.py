@@ -20,6 +20,7 @@ from butterscout.models.exceptions import (
 )
 from butterscout.models.requests import ExtractRequest
 from butterscout.models.responses import ExtractMetadata, ExtractResponse
+from butterscout.services.extraction_warnings import crawl4ai_warnings
 from butterscout.services.rate_limiter import RateLimiter
 from butterscout.state import app_state
 from butterscout.utils.domain_filter import is_domain_allowed
@@ -61,14 +62,16 @@ async def extract_url(
         timeout_ms=min(request_body.extract_timeout_ms, app_state.settings.BS_REQUEST_TIMEOUT_MS),
     )
 
+    warnings = crawl4ai_warnings([result])
     if not result.extraction_ok or not result.content.strip():
         if request_state is not None and hasattr(request_state, "error_code"):
             request_state.error_code = "UPSTREAM_ERROR"
         is_timeout = (result.error or "").lower() == "timeout"
         # Raw extractor errors can carry internal service URLs; log them, don't return them.
         logger.warning("extract_failed", request_id=request_id, url=url, error=result.error)
+        message = "timeout" if is_timeout else "Content extraction failed"
         raise UpstreamProviderError(
-            "timeout" if is_timeout else "Content extraction failed",
+            ". ".join([message, *warnings]),
             component="extract",
             is_timeout=is_timeout,
             headers=headers,
@@ -89,6 +92,7 @@ async def extract_url(
             extraction_ok=True,
             extraction_error=None,
             extraction_time_ms=result.extraction_time_ms,
+            warnings=warnings,
         ),
     )
 

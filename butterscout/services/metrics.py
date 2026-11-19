@@ -23,7 +23,10 @@ Request Metrics:
 Component Metrics:
 - butterscout_searxng_duration_seconds: SearXNG request latency histogram
 - butterscout_extraction_duration_seconds: Content extraction latency (labels: extractor)
-- butterscout_extraction_failures_total: Failed extractions (labels: reason)
+- butterscout_extraction_failures_total: Failed extractions (labels: extractor, reason).
+  For crawl4ai, reason is timeout/error for one page, busy when no slot freed up in
+  time, or unreachable/auth/server_error/api_mismatch when Crawl4AI itself is failing
+  (every such failure sent the page to the fallback extractor).
 
 Cache Metrics:
 - butterscout_cache_hits_total: Cache hit count
@@ -85,7 +88,7 @@ extraction_duration_seconds = Histogram(
 extraction_failures_total = Counter(
     "butterscout_extraction_failures_total",
     "Failed content extractions",
-    ["reason"],  # timeout, error, empty
+    ["extractor", "reason"],
 )
 
 # Cache metrics
@@ -161,12 +164,12 @@ class MetricsService:
             extractor: Name of extractor (crawl4ai, trafilatura)
             duration_seconds: Extraction duration in seconds
             success: Whether extraction succeeded
-            reason: Failure reason if not successful (timeout, error, empty)
+            reason: Failure reason if not successful (see module docstring)
         """
         extraction_duration_seconds.labels(extractor=extractor).observe(duration_seconds)
 
         if not success and reason:
-            extraction_failures_total.labels(reason=reason).inc()
+            extraction_failures_total.labels(extractor=extractor, reason=reason).inc()
 
     def record_cache_hit(self) -> None:
         """Record cache hit."""

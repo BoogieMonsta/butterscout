@@ -46,6 +46,9 @@ class ResponseMetadata(BaseModel):
     api_version: str = "v1"
     rate_limited: bool = False
     rate_limited_reason: Optional[str] = None
+    # Plain-language notes when extraction was degraded (e.g. Crawl4AI down and pages
+    # came from the fallback extractor). Responses with warnings are not cached.
+    warnings: list[str] = Field(default_factory=list)
 
 
 class SearchResponse(BaseModel):
@@ -61,6 +64,7 @@ class ExtractMetadata(BaseModel):
     extraction_ok: bool
     extraction_error: Optional[str] = None
     extraction_time_ms: int
+    warnings: list[str] = Field(default_factory=list)
 
 
 class ExtractResponse(BaseModel):

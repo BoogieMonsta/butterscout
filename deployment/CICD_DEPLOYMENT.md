@@ -40,6 +40,7 @@ DOKPLOY_WEBHOOK_URL=https://your-dokploy.com/webhook/...
 # Application Secrets (for Dokploy environment)
 REDIS_PASSWORD=$(openssl rand -base64 32)
 SEARXNG_SECRET_KEY=$(openssl rand -hex 32)
+BS_CRAWL4AI_API_TOKEN=$(openssl rand -hex 32)
 ```
 
 ### 2. Dokploy Configuration
@@ -49,9 +50,24 @@ In your Dokploy Docker Compose application, set environment variables:
 ```bash
 REDIS_PASSWORD=<from-github-secrets>
 SEARXNG_SECRET_KEY=<from-github-secrets>
+BS_CRAWL4AI_API_TOKEN=<from-github-secrets>
 ```
 
-These get injected into containers automatically.
+These get injected into containers automatically. `BS_CRAWL4AI_API_TOKEN` goes to both the
+API and Crawl4AI: Crawl4AI 0.9+ only answers its API with a token, and without one it binds
+its container's loopback, so Butterscout cannot reach it at all. Compose refuses to start
+without the variable rather than run with extraction silently down.
+
+#### Upgrading from Crawl4AI 0.7.x (one time)
+
+1. Add `BS_CRAWL4AI_API_TOKEN` to the Dokploy environment **before** merging to `main` (every
+   push to `main` deploys).
+2. Deploy the API and Crawl4AI together (same compose deploy). Rollback is the previous pair:
+   the 0.9 client does not work against a 0.7 server, nor the reverse.
+3. Check `/health`: `crawl4ai` must be `ok` (it renders a page with the same filter config
+   search uses). Then run a search for a query you have not run in the last hour (an older
+   cached answer would hide a broken crawler) and check that results say
+   `"extracted_by": "crawl4ai"` and carry no `warnings`.
 
 ### 3. Done!
 

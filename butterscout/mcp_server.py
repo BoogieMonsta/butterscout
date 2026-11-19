@@ -52,7 +52,8 @@ mcp = MCPServer(
         "Web search and page extraction backed by a self-hosted SearXNG + Crawl4AI stack. "
         "Use butterscout_search to find sources (each result includes clean page text, "
         "clipped to 4000 characters; content_truncated tells you when). Use "
-        "butterscout_extract to read one URL in full."
+        "butterscout_extract to read one URL in full. If a response includes warnings, "
+        "Butterscout is degraded: tell the user what the warnings say."
     ),
 )
 
@@ -76,6 +77,10 @@ class McpSearchResponse(BaseModel):
     cache_hit: bool
     search_time_ms: int
     max_results_applied: int
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Set when extraction was degraded; tell the user what they say.",
+    )
     results: list[McpSearchResult]
 
 
@@ -173,6 +178,7 @@ async def butterscout_search(
         cache_hit=response.metadata.cache_hit,
         search_time_ms=response.metadata.search_time_ms,
         max_results_applied=applied,
+        warnings=response.metadata.warnings,
         results=results,
     )
 

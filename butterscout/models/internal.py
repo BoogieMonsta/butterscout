@@ -3,9 +3,16 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional, get_args
 
 from pydantic import BaseModel, HttpUrl
+
+# Why Crawl4AI itself is failing (as opposed to one page failing).
+Crawl4AIFault = Literal["unreachable", "unresponsive", "auth", "server_error", "api_mismatch"]
+CRAWL4AI_FAULTS: frozenset[str] = frozenset(get_args(Crawl4AIFault))
+# Why Crawl4AI did not produce a result: the page failed or timed out ("page"), no
+# Crawl4AI slot freed up in time ("busy"), or Crawl4AI itself is failing.
+Crawl4AIFailure = Literal["page", "busy", Crawl4AIFault]
 
 
 class NormalizedSearchResult(BaseModel):
@@ -28,6 +35,8 @@ class ExtractedContent(BaseModel):
     extraction_ok: bool
     extraction_time_ms: int
     error: Optional[str] = None
+    # Set when Crawl4AI did not produce this content (whichever extractor did).
+    crawl4ai_failure: Optional[Crawl4AIFailure] = None
 
 
 class CacheKey(BaseModel):

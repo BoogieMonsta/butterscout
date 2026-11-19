@@ -8,11 +8,17 @@ from typing import Literal, Optional
 from pydantic import ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Upper bound for BS_REQUEST_TIMEOUT_MS, and so for any one extraction attempt. The
+# Crawl4AI server's own per-crawl deadline (crawl4ai-config/config.yml) must stay above it.
+MAX_REQUEST_TIMEOUT_MS = 6000
+
 
 class Settings(BaseSettings):
     # Required service URLs
     BS_SEARXNG_URL: str = "http://localhost:8080"
     BS_CRAWL4AI_URL: str = "http://localhost:11235"
+    # Crawl4AI 0.9+ answers its API only with this bearer token (its CRAWL4AI_API_TOKEN).
+    BS_CRAWL4AI_API_TOKEN: Optional[str] = None
     BS_CACHE_TYPE: Literal["redis", "memory"] = "redis"
     BS_REDIS_URL: str = "redis://localhost:6379/0"
 
@@ -94,8 +100,10 @@ class Settings(BaseSettings):
     @field_validator("BS_REQUEST_TIMEOUT_MS")
     @classmethod
     def validate_request_timeout(cls, value: int) -> int:
-        if value <= 0 or value > 6000:
-            raise ValueError("BS_REQUEST_TIMEOUT_MS must be between 1 and 6000 ms")
+        if value <= 0 or value > MAX_REQUEST_TIMEOUT_MS:
+            raise ValueError(
+                f"BS_REQUEST_TIMEOUT_MS must be between 1 and {MAX_REQUEST_TIMEOUT_MS} ms"
+            )
         return value
 
     @field_validator("BS_MAX_CONCURRENT_EXTRACTIONS")

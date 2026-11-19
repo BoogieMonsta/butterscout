@@ -8,6 +8,7 @@ services:
       # Service URLs
       BS_SEARXNG_URL: ${BS_SEARXNG_URL:-http://searxng:8080}
       BS_CRAWL4AI_URL: ${BS_CRAWL4AI_URL:-http://crawl4ai:11235}
+      BS_CRAWL4AI_API_TOKEN: ${BS_CRAWL4AI_API_TOKEN:?Set BS_CRAWL4AI_API_TOKEN in .env (e.g. openssl rand -hex 32); Crawl4AI 0.9+ refuses API calls without it}
       BS_REDIS_URL: ${BS_REDIS_URL:-redis://redis:6379/0}
 
       # Authentication (optional)
@@ -25,7 +26,8 @@ services:
       BS_MAX_RESULTS: ${BS_MAX_RESULTS:-10}
 
       # Extraction settings
-      BS_MAX_CONCURRENT_EXTRACTIONS: ${BS_MAX_CONCURRENT_EXTRACTIONS:-4}
+      # Crawl4AI pages in flight across all requests: ~2 per Crawl4AI CPU (4 CPUs below).
+      BS_MAX_CONCURRENT_EXTRACTIONS: ${BS_MAX_CONCURRENT_EXTRACTIONS:-8}
       BS_EXTRACTION_TIMEOUT_MS: ${BS_EXTRACTION_TIMEOUT_MS:-2500}
       BS_FALLBACK_ENABLED: ${BS_FALLBACK_ENABLED:-true}
       BS_FALLBACK_TIMEOUT_MS: ${BS_FALLBACK_TIMEOUT_MS:-2000}
@@ -69,7 +71,7 @@ services:
         soft: 65535
         hard: 65535
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
       interval: 30s
       timeout: 3s
       retries: 3
@@ -120,8 +122,15 @@ services:
   crawl4ai:
     # Using the official Crawl4AI Docker image
     # Ref: https://github.com/unclecode/crawl4ai
-    image: unclecode/crawl4ai:latest
+    # Pinned: Crawl4AI 0.9 changed its API defaults (token required, loopback-only
+    # without one), and Butterscout's client targets 0.9's POST /crawl. Bump on purpose.
+    image: unclecode/crawl4ai:0.9.5
     container_name: butterscout-crawl4ai
+    volumes:
+      # Upstream config with a short per-crawl deadline; see the file's header.
+      - ./crawl4ai-config/config.yml:/app/config.yml:ro
+    environment:
+      CRAWL4AI_API_TOKEN: ${BS_CRAWL4AI_API_TOKEN:?Set BS_CRAWL4AI_API_TOKEN in .env (e.g. openssl rand -hex 32); Crawl4AI 0.9+ refuses API calls without it}
     ports:
       - "11235:11235"
     shm_size: "2gb"  # Important for browser automation
@@ -131,18 +140,18 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 1024M
+          cpus: '4.0'
+          memory: 3072M
         reservations:
-          cpus: '0.25'
-          memory: 256M
+          cpus: '0.5'
+          memory: 512M
     ulimits:
       nofile:
         soft: 65535
         hard: 65535
-    # Health check: Try HTTP endpoint first, fallback to TCP port check
+    # Liveness only. Butterscout's own /health renders a page through a real browser.
     healthcheck:
-      test: ["CMD", "python", "-c", "import http.client; http.client.HTTPConnection('localhost', 11235, timeout=5).connect()"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:11235/health', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 3

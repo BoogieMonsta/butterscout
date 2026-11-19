@@ -84,6 +84,7 @@ def test_success_shape_and_rate_limit_headers(extract_env: MagicMock) -> None:
             "extraction_ok": True,
             "extraction_error": None,
             "extraction_time_ms": 42,
+            "warnings": [],
         },
     }
     assert response.headers["X-RateLimit-Limit"] == "60"
@@ -184,6 +185,41 @@ def test_upstream_failure_is_502_envelope(extract_env: MagicMock) -> None:
     assert body["error"]["message"] == "timeout"
     assert body["error"]["details"] == {"component": "extract", "timeout": True}
     assert response.headers["X-RateLimit-Limit"] == "60"
+
+
+# Intentional addition (not characterization): when Crawl4AI itself is failing, the
+# error and the success metadata say so instead of hiding behind the fallback.
+def test_failure_names_a_failing_crawl4ai(extract_env: MagicMock) -> None:
+    extract_env.extract.return_value = ExtractedContent(
+        url=HttpUrl(PUBLIC_URL),
+        content="",
+        word_count=0,
+        extracted_by="none",
+        extraction_ok=False,
+        extraction_time_ms=5,
+        error="Both extractors failed",
+        crawl4ai_failure="unreachable",
+    )
+    response = _post({"url": PUBLIC_URL})
+    assert response.status_code == 502
+    message = response.json()["error"]["message"]
+    assert message.startswith("Content extraction failed. Crawl4AI could not be reached")
+
+
+def test_fallback_success_carries_a_warning(extract_env: MagicMock) -> None:
+    extract_env.extract.return_value = ExtractedContent(
+        url=HttpUrl(PUBLIC_URL),
+        content="Fallback text",
+        word_count=2,
+        extracted_by="trafilatura",
+        extraction_ok=True,
+        extraction_time_ms=5,
+        crawl4ai_failure="auth",
+    )
+    response = _post({"url": PUBLIC_URL})
+    assert response.status_code == 200
+    (warning,) = response.json()["metadata"]["warnings"]
+    assert "BS_CRAWL4AI_API_TOKEN" in warning
 
 
 # Intentional addition (not characterization): Authorization: Bearer is accepted too.

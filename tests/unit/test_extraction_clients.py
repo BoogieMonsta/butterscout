@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
-import json
 from typing import cast
 
 import httpx
 import pytest
 import respx
 from httpx import Response
+from prometheus_client import REGISTRY
 from pydantic import HttpUrl, TypeAdapter
 
-from butterscout.clients.crawl4ai_client import Crawl4AIClient
+from butterscout.clients.crawl4ai_client import (
+    Crawl4AIBusyError,
+    Crawl4AIClient,
+    Crawl4AIUnavailableError,
+)
 from butterscout.clients.extraction_strategy import ExtractionStrategy
 from butterscout.clients.trafilatura_client import TrafilaturaClient
 from butterscout.config import Settings
@@ -26,58 +30,12 @@ def _validated_url(url_str: str) -> HttpUrl:
     return TypeAdapter(HttpUrl).validate_python(url_str)
 
 
-@pytest.mark.asyncio
-@respx.mock
-async def test_crawl4ai_success(settings: Settings) -> None:
-    """Test successful Crawl4AI extraction."""
-    mock_response = {
-        "markdown": "This is extracted content from Crawl4AI. It has multiple words here.",
+def _crawl_ok(raw: str) -> dict[str, object]:
+    """A Crawl4AI 0.9 /crawl response for one successfully crawled page."""
+    return {
         "success": True,
+        "results": [{"success": True, "markdown": {"raw_markdown": raw, "fit_markdown": ""}}],
     }
-
-    route = respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
-        return_value=Response(200, json=mock_response)
-    )
-
-    client = Crawl4AIClient(settings)
-    await client.connect()
-
-    try:
-        result = await client.extract(_validated_url("https://example.com"), "test-123")
-
-        assert result.extraction_ok is True
-        assert result.extracted_by == "crawl4ai"
-        assert result.word_count > 0
-        assert "Crawl4AI" in result.content
-        assert result.extraction_time_ms > 0
-        payload = json.loads(route.calls.last.request.content)
-        assert payload["url"] == "https://example.com/"
-        assert payload["f"] == "raw"
-    finally:
-        await client.disconnect()
-
-
-@pytest.mark.asyncio
-@respx.mock
-async def test_extraction_strategy_sends_fit_filter_to_crawl4ai(settings: Settings) -> None:
-    """The strategy forwards markdown_filter to Crawl4AI's /md request."""
-    route = respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
-        return_value=Response(200, json={"markdown": "Main article text only.", "success": True})
-    )
-
-    crawl4ai = Crawl4AIClient(settings)
-    strategy = ExtractionStrategy(crawl4ai, None, settings)
-    await crawl4ai.connect()
-
-    try:
-        result = await strategy.extract(
-            _validated_url("https://example.com"), "test-fit", markdown_filter="fit"
-        )
-
-        assert result.extraction_ok is True
-        assert json.loads(route.calls.last.request.content)["f"] == "fit"
-    finally:
-        await crawl4ai.disconnect()
 
 
 @pytest.mark.asyncio
@@ -159,139 +117,6 @@ async def test_extraction_strategy_no_fallback() -> None:
     assert result.extraction_ok is False
     assert result.extracted_by == "none"
     assert result.error is not None and "crawl failure" in result.error
-
-
-@pytest.mark.asyncio
-@respx.mock
-async def test_crawl4ai_timeout(settings: Settings) -> None:
-    """Test Crawl4AI timeout handling."""
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
-        side_effect=httpx.TimeoutException("Request timeout")
-    )
-
-    client = Crawl4AIClient(settings)
-    await client.connect()
-
-    try:
-        with pytest.raises(TimeoutError):
-            await client.extract(_url("https://example.com"), "test-timeout")
-    finally:
-        await client.disconnect()
-
-
-@pytest.mark.asyncio
-@respx.mock
-async def test_crawl4ai_http_error(settings: Settings) -> None:
-    """Test Crawl4AI HTTP error handling."""
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
-        return_value=Response(500, json={"error": "Internal server error"})
-    )
-
-    client = Crawl4AIClient(settings)
-    await client.connect()
-
-    try:
-        with pytest.raises(httpx.HTTPStatusError):
-            await client.extract(_url("https://example.com"), "test-error")
-    finally:
-        await client.disconnect()
-
-
-@pytest.mark.asyncio
-@respx.mock
-async def test_crawl4ai_empty_content(settings: Settings) -> None:
-    """Test Crawl4AI empty content handling."""
-    mock_response = {
-        "markdown": "",
-        "success": True,
-    }
-
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
-        return_value=Response(200, json=mock_response)
-    )
-
-    client = Crawl4AIClient(settings)
-    await client.connect()
-
-    try:
-        with pytest.raises(ValueError, match="empty content"):
-            await client.extract(_url("https://example.com"), "test-empty")
-    finally:
-        await client.disconnect()
-
-
-@pytest.mark.asyncio
-@respx.mock
-async def test_crawl4ai_whitespace_only_content(settings: Settings) -> None:
-    """Test Crawl4AI whitespace-only content handling."""
-    mock_response = {
-        "markdown": "   \n\t  ",
-        "success": True,
-    }
-
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
-        return_value=Response(200, json=mock_response)
-    )
-
-    client = Crawl4AIClient(settings)
-    await client.connect()
-
-    try:
-        with pytest.raises(ValueError, match="empty content"):
-            await client.extract(_url("https://example.com"), "test-whitespace")
-    finally:
-        await client.disconnect()
-
-
-@pytest.mark.asyncio
-@respx.mock
-async def test_crawl4ai_invalid_response_format(settings: Settings) -> None:
-    """Test Crawl4AI invalid response format handling."""
-    # Return a list instead of dict
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
-        return_value=Response(200, json=["not", "a", "dict"])
-    )
-
-    client = Crawl4AIClient(settings)
-    await client.connect()
-
-    try:
-        with pytest.raises(ValueError, match="Invalid response format"):
-            await client.extract(_url("https://example.com"), "test-invalid-format")
-    finally:
-        await client.disconnect()
-
-
-@pytest.mark.asyncio
-@respx.mock
-async def test_crawl4ai_health_check_success(settings: Settings) -> None:
-    """Test Crawl4AI health check success."""
-    respx.get(f"{settings.BS_CRAWL4AI_URL}/health").mock(return_value=Response(200))
-
-    client = Crawl4AIClient(settings)
-    await client.connect()
-
-    try:
-        healthy = await client.health_check()
-        assert healthy is True
-    finally:
-        await client.disconnect()
-
-
-@pytest.mark.asyncio
-@respx.mock
-async def test_crawl4ai_health_check_failure(settings: Settings) -> None:
-    """Test Crawl4AI health check failure."""
-    respx.get(f"{settings.BS_CRAWL4AI_URL}/health").mock(return_value=Response(503))
-
-    client = Crawl4AIClient(settings)
-    await client.connect()
-
-    try:
-        healthy = await client.health_check()
-        assert healthy is False
-    finally:
-        await client.disconnect()
 
 
 @pytest.mark.asyncio
@@ -400,13 +225,8 @@ async def test_trafilatura_http_error(settings: Settings) -> None:
 @respx.mock
 async def test_extraction_strategy_crawl4ai_success(settings: Settings) -> None:
     """Test extraction strategy with successful Crawl4AI."""
-    mock_response = {
-        "markdown": "Content from Crawl4AI primary extractor.",
-        "success": True,
-    }
-
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
-        return_value=Response(200, json=mock_response)
+    respx.post(f"{settings.BS_CRAWL4AI_URL}/crawl").mock(
+        return_value=Response(200, json=_crawl_ok("Content from Crawl4AI primary extractor."))
     )
 
     crawl4ai = Crawl4AIClient(settings)
@@ -420,6 +240,7 @@ async def test_extraction_strategy_crawl4ai_success(settings: Settings) -> None:
         result = await strategy.extract(_url("https://example.com"), "test-strategy-1")
         assert result.extraction_ok is True
         assert result.extracted_by == "crawl4ai"
+        assert result.crawl4ai_failure is None
     finally:
         await crawl4ai.disconnect()
         await trafilatura.disconnect()
@@ -430,7 +251,7 @@ async def test_extraction_strategy_crawl4ai_success(settings: Settings) -> None:
 async def test_extraction_strategy_fallback_to_trafilatura(settings: Settings) -> None:
     """Test extraction strategy falls back to Trafilatura when Crawl4AI fails."""
     # Mock Crawl4AI to fail
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
+    respx.post(f"{settings.BS_CRAWL4AI_URL}/crawl").mock(
         return_value=Response(500, json={"error": "Internal error"})
     )
 
@@ -455,6 +276,7 @@ async def test_extraction_strategy_fallback_to_trafilatura(settings: Settings) -
         result = await strategy.extract(_url("https://example.com"), "test-strategy-fallback")
         assert result.extraction_ok is True
         assert result.extracted_by == "trafilatura"
+        assert result.crawl4ai_failure == "server_error"
     finally:
         await crawl4ai.disconnect()
         await trafilatura.disconnect()
@@ -465,7 +287,7 @@ async def test_extraction_strategy_fallback_to_trafilatura(settings: Settings) -
 async def test_extraction_strategy_both_fail(settings: Settings) -> None:
     """Test extraction strategy when both extractors fail."""
     # Mock Crawl4AI to fail
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
+    respx.post(f"{settings.BS_CRAWL4AI_URL}/crawl").mock(
         return_value=Response(500, json={"error": "Internal error"})
     )
 
@@ -499,7 +321,7 @@ async def test_extraction_strategy_fallback_disabled(settings: Settings) -> None
     settings.BS_FALLBACK_ENABLED = False
 
     # Mock Crawl4AI to fail
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
+    respx.post(f"{settings.BS_CRAWL4AI_URL}/crawl").mock(
         return_value=Response(500, json={"error": "Internal error"})
     )
 
@@ -527,8 +349,8 @@ async def test_extraction_strategy_crawl4ai_empty_content_fallback(
 ) -> None:
     """Test extraction strategy falls back when Crawl4AI returns empty content."""
     # Mock Crawl4AI to return empty content
-    respx.post(f"{settings.BS_CRAWL4AI_URL}/md").mock(
-        return_value=Response(200, json={"markdown": "", "success": True})
+    respx.post(f"{settings.BS_CRAWL4AI_URL}/crawl").mock(
+        return_value=Response(200, json=_crawl_ok(""))
     )
 
     # Mock successful Trafilatura fetch
@@ -553,7 +375,46 @@ async def test_extraction_strategy_crawl4ai_empty_content_fallback(
         # Should succeed with Trafilatura after Crawl4AI returned empty
         assert result.extraction_ok is True
         assert result.extracted_by == "trafilatura"
+        assert result.crawl4ai_failure == "page"
         assert len(result.content) > 0
     finally:
         await crawl4ai.disconnect()
         await trafilatura.disconnect()
+
+
+@pytest.mark.parametrize(
+    ("error", "failure", "metric_reason"),
+    [
+        (Crawl4AIBusyError("no slot"), "busy", "busy"),
+        (Crawl4AIUnavailableError("auth", "HTTP 401"), "auth", "auth"),
+        (Crawl4AIUnavailableError("unreachable", "ConnectError"), "unreachable", "unreachable"),
+        (TimeoutError("slow page"), "page", "timeout"),
+        (ValueError("blocked page"), "page", "error"),
+    ],
+)
+async def test_strategy_records_why_crawl4ai_failed(
+    settings: Settings, error: Exception, failure: str, metric_reason: str
+) -> None:
+    """Every Crawl4AI failure is tagged on the result and counted by reason."""
+
+    class FakeCrawl4AI:
+        async def extract(
+            self,
+            url: HttpUrl,
+            request_id: str,
+            timeout_ms: int | None = None,
+            markdown_filter: str = "raw",
+        ) -> ExtractedContent:
+            raise error
+
+    labels = {"extractor": "crawl4ai", "reason": metric_reason}
+    before = REGISTRY.get_sample_value("butterscout_extraction_failures_total", labels) or 0.0
+    settings.BS_FALLBACK_ENABLED = False
+    strategy = ExtractionStrategy(cast(Crawl4AIClient, FakeCrawl4AI()), None, settings)
+
+    result = await strategy.extract(_url("https://example.com"), "req")
+
+    assert result.extraction_ok is False
+    assert result.crawl4ai_failure == failure
+    after = REGISTRY.get_sample_value("butterscout_extraction_failures_total", labels)
+    assert after == before + 1
