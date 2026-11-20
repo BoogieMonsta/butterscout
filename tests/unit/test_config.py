@@ -130,3 +130,22 @@ def test_cors_origins_single_origin() -> None:
         BS_CORS_ORIGINS="https://app.example.com",
     )
     assert settings.cors_origins_list == ["https://app.example.com"]
+
+
+@pytest.mark.parametrize(
+    "value", ["CaféFetcher/1.0", "   ", " Fetcher/1.0", "Fetcher/1.0 ", "Fetcher/1.0\nX-Evil: 1"]
+)
+def test_a_malformed_fallback_user_agent_is_refused_by_name(value: str) -> None:
+    """Non-ASCII crashes the HTTP client at startup; bad whitespace fails every request."""
+    with pytest.raises(ValidationError, match="BS_FALLBACK_USER_AGENT"):
+        Settings(BS_FALLBACK_USER_AGENT=value)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [("", None), (None, None), ("ExampleFetcher/0.0 (bot)", "ExampleFetcher/0.0 (bot)")],
+)
+def test_an_empty_fallback_user_agent_means_the_httpx_default(
+    value: str | None, expected: str | None
+) -> None:
+    assert Settings(BS_FALLBACK_USER_AGENT=value).BS_FALLBACK_USER_AGENT == expected

@@ -95,6 +95,27 @@ async def test_extracts_a_page_and_asks_for_no_compression(settings: Settings) -
     assert seen[0].headers["accept-encoding"] == "identity"
 
 
+@pytest.mark.parametrize("user_agent", [None, "", "ExampleFetcher/0.0"])
+async def test_sends_the_configured_user_agent_or_the_httpx_default(
+    settings: Settings, user_agent: Optional[str]
+) -> None:
+    settings.BS_FALLBACK_USER_AGENT = user_agent
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return _page()
+
+    client = await _client(settings, handler)
+    try:
+        await client.extract(URL, "req")
+    finally:
+        await client.disconnect()
+    sent = seen[0].headers["user-agent"]
+    assert sent == (user_agent or f"python-httpx/{httpx.__version__}")
+    assert seen[0].headers["accept-encoding"] == "identity"
+
+
 async def test_a_compressed_answer_is_refused_unread(settings: Settings) -> None:
     body = _CountingStream([b"\x1f\x8b" + b"\x00" * 100])
 

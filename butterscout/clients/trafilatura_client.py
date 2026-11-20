@@ -42,6 +42,11 @@ class TrafilaturaClient:
 
     async def connect(self) -> None:
         """Initialize thread pool and HTTP client."""
+        # Compressed bodies are decoded before any size check could stop them (a 28 KiB
+        # gzip chunk expanded to 8 MiB), so ask for none and refuse any.
+        headers = {"Accept-Encoding": "identity"}
+        if self.settings.BS_FALLBACK_USER_AGENT:
+            headers["User-Agent"] = self.settings.BS_FALLBACK_USER_AGENT
         self.executor = ThreadPoolExecutor(
             max_workers=self.max_workers,
             thread_name_prefix="trafilatura",
@@ -51,9 +56,7 @@ class TrafilaturaClient:
             # would turn the timeout into a generic fetch failure.
             timeout=None,
             follow_redirects=False,
-            # Compressed bodies are decoded before any size check could stop them (a
-            # 28 KiB gzip chunk expanded to 8 MiB), so ask for none and refuse any.
-            headers={"Accept-Encoding": "identity"},
+            headers=headers,
         )
 
     async def disconnect(self) -> None:

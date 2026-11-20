@@ -95,6 +95,9 @@ See `.env.example` for all available configuration options.
   answers are refused, since decoding happens before any size check), at most 5 redirects.
   At most 2 x `BS_FALLBACK_MAX_WORKERS` fallback extractions at once; a parse keeps its slot
   until its thread finishes, even after its caller gave up.
+- `BS_FALLBACK_USER_AGENT`: the User-Agent the fallback sends. Unset, it is HTTPX's default,
+  which some sites refused in testing; an honest bot name of your own got more of them. The
+  fallback does not pretend to be a browser.
 - Rate limits: 60 req/hr per IP; 600 req/hr per API key; optional global 10k/hr
 - Extraction concurrency: 8 Crawl4AI pages at once across all requests in the compose files
   (`BS_MAX_CONCURRENT_EXTRACTIONS`, about 2 per Crawl4AI CPU); a page that waits past its

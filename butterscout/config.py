@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Literal, Optional
 
 from pydantic import ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# A legal HTTP header value: printable ASCII tokens separated by spaces.
+_USER_AGENT_RE = re.compile(r"[!-~]+(?: +[!-~]+)*")
 
 # Upper bound for BS_REQUEST_TIMEOUT_MS, and so for any one extraction attempt. The
 # Crawl4AI server's own per-crawl deadline (crawl4ai-config/config.yml) must stay above it.
@@ -50,6 +54,10 @@ class Settings(BaseSettings):
     # Fallback extractor
     BS_FALLBACK_ENABLED: bool = True
     BS_FALLBACK_MAX_WORKERS: int = 2
+    # User-Agent the fallback sends to the pages it fetches. Unset: HTTPX's default
+    # (python-httpx/<version>), which some sites refuse. Set it in your local .env, so the
+    # exact value is not in public source where anyone could tie it back to this project.
+    BS_FALLBACK_USER_AGENT: Optional[str] = None
 
     # Health check
     BS_HEALTH_TIMEOUT_MS: int = 750
@@ -85,6 +93,21 @@ class Settings(BaseSettings):
         env_file=".env",
         case_sensitive=True,
     )
+
+    @field_validator("BS_FALLBACK_USER_AGENT")
+    @classmethod
+    def validate_fallback_user_agent(cls, value: Optional[str]) -> Optional[str]:
+        # Empty (what compose passes when unset) means HTTPX's default. Anything else must be
+        # a legal header value: non-ASCII crashes the client at startup, and surrounding or
+        # lone whitespace or a newline makes every fallback request fail.
+        if not value:
+            return None
+        if not _USER_AGENT_RE.fullmatch(value):
+            raise ValueError(
+                "BS_FALLBACK_USER_AGENT must be printable ASCII words separated by spaces, "
+                "with no leading or trailing whitespace"
+            )
+        return value
 
     @field_validator("BS_MAX_RESULTS")
     @classmethod
