@@ -249,7 +249,7 @@ class Crawl4AIClient:
 def _validated_result(response: httpx.Response) -> dict[str, Any]:
     """Map a /crawl response to its single result, or raise a typed error.
 
-    Contract (Crawl4AI 0.9.5): 200 with ``results[0]``, whose ``success`` is a bool and
+    Contract (Crawl4AI 0.9.6): 200 with ``results[0]``, whose ``success`` is a bool and
     whose markdown fields are strings (or null). 400 means Crawl4AI refused either the
     URL (its SSRF guard; a page problem) or our config ("Rejected config"; an API
     mismatch). 429 means Crawl4AI is shedding load.

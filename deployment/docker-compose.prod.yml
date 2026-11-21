@@ -151,7 +151,7 @@ services:
   crawl4ai:
     # Pinned to specific version for production stability
     # Update: Check https://hub.docker.com/r/unclecode/crawl4ai/tags or https://github.com/unclecode/crawl4ai/releases
-    image: unclecode/crawl4ai:0.9.5
+    image: unclecode/crawl4ai:0.9.6
     container_name: butterscout-crawl4ai
     volumes:
       # Upstream config with a short per-crawl deadline; see the file's header.

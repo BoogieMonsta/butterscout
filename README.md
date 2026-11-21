@@ -266,7 +266,7 @@ treats a 401 as a cue to start OAuth, which Butterscout does not offer. This key
 documented but has not been tested end to end in a harness.
 
 Local and private addresses: Crawl4AI's browser sends its HTTP(S) traffic through Crawl4AI's
-own egress proxy (0.9.5), which refuses non-global addresses, redirects included. The fallback
+own egress proxy (0.9.6), which refuses non-global addresses, redirects included. The fallback
 checks each new connection itself: it resolves the host once, refuses it if any answer is not
 a public unicast address, and dials only the checked addresses, so redirects and changing DNS
 answers are covered too (`butterscout/clients/public_only.py`). `/extract` also checks the URL

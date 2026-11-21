@@ -125,7 +125,7 @@ services:
     # Ref: https://github.com/unclecode/crawl4ai
     # Pinned: Crawl4AI 0.9 changed its API defaults (token required, loopback-only
     # without one), and Butterscout's client targets 0.9's POST /crawl. Bump on purpose.
-    image: unclecode/crawl4ai:0.9.5
+    image: unclecode/crawl4ai:0.9.6
     container_name: butterscout-crawl4ai
     volumes:
       # Upstream config with a short per-crawl deadline; see the file's header.

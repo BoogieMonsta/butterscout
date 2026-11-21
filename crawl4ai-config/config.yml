@@ -1,4 +1,4 @@
-# Crawl4AI server config for Butterscout: upstream unclecode/crawl4ai:0.9.5
+# Crawl4AI server config for Butterscout: upstream unclecode/crawl4ai:0.9.6
 # /app/config.yml with ONE change, limits.wall_clock_s 300 -> 8 (marked below).
 #
 # Why: Crawl4AI keeps working on a page after the caller hangs up, and some waits ignore
@@ -27,7 +27,7 @@ app:
 
 # Default LLM Configuration
 llm:
-  provider: "openai/gpt-4o-mini"
+  provider: "openai/gpt-6-luna"
   # api_key: sk-...  # If you pass the API key directly (not recommended)
 
 # Redis Configuration

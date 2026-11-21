@@ -8,7 +8,7 @@ resolves its host once, refuses the lot if any address is not public, and dials 
 checked addresses. TLS and the Host header still use the URL's name, and pooled connections
 are keyed by that name, so a reused connection is one that already passed the check.
 
-Crawl4AI's browser traffic goes through Crawl4AI's own egress proxy (0.9.5), which refuses
+Crawl4AI's browser traffic goes through Crawl4AI's own egress proxy (0.9.6), which refuses
 non-global addresses too; its rule is close to this one but not identical (it has no explicit
 multicast or site-local IPv6 check).
 """
