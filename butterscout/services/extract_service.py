@@ -25,7 +25,7 @@ from butterscout.services.rate_limiter import RateLimiter
 from butterscout.state import app_state
 from butterscout.utils.domain_filter import is_domain_allowed
 from butterscout.utils.rate_limit_headers import generate_rate_limit_headers
-from butterscout.utils.url_safety import blocked_hostname
+from butterscout.utils.url_safety import blocked_hostname, is_public_address
 
 logger = structlog.get_logger()
 
@@ -144,7 +144,10 @@ async def check_access(
 
 
 async def assert_public_url(url: str) -> None:
-    """Reject URLs that are not plain public http(s), resolving DNS once."""
+    """Reject URLs that are not plain public http(s), resolving DNS once.
+
+    Gives callers a clearer error up front; the real guards are at connect time (see
+    butterscout/clients/public_only.py and the README)."""
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"}:
         raise InvalidUrlError("Only http and https URLs can be extracted")
@@ -164,10 +167,8 @@ async def assert_public_url(url: str) -> None:
             raise InvalidUrlError(f"Could not resolve {hostname}") from exc
         addresses = [str(info[4][0]) for info in infos]
 
-    for address in addresses:
-        ip = ipaddress.ip_address(address)
-        if not ip.is_global:
-            raise InvalidUrlError("URL resolves to a local or private address")
+    if not all(is_public_address(address) for address in addresses):
+        raise InvalidUrlError("URL resolves to a local or private address")
 
 
 def _word_count(value: str) -> int:

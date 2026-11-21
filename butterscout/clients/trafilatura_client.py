@@ -12,6 +12,7 @@ import structlog
 import trafilatura
 from pydantic import HttpUrl
 
+from butterscout.clients.public_only import public_only_transport
 from butterscout.config import Settings
 from butterscout.models.internal import ExtractedContent
 
@@ -57,6 +58,9 @@ class TrafilaturaClient:
             timeout=None,
             follow_redirects=False,
             headers=headers,
+            # Every connection, redirects included, goes only to public addresses. With an
+            # explicit transport HTTPX also ignores proxy environment variables.
+            transport=public_only_transport(),
         )
 
     async def disconnect(self) -> None:

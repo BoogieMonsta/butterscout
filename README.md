@@ -92,7 +92,8 @@ See `.env.example` for all available configuration options.
   6 s worst case by default, ~2 s at 500 ms, ~10 s at 6000 ms. SearXNG (2 s, +1 retry) runs
   first, and search waits for its slowest page; there is no request-wide deadline.
 - Fallback pages: at most 5 MB, no compression (`Accept-Encoding: identity`; compressed
-  answers are refused, since decoding happens before any size check), at most 5 redirects.
+  answers are refused, since decoding happens before any size check), at most 5 redirects,
+  public addresses only (see below).
   At most 2 x `BS_FALLBACK_MAX_WORKERS` fallback extractions at once; a parse keeps its slot
   until its thread finishes, even after its caller gave up.
 - `BS_FALLBACK_USER_AGENT`: the User-Agent the fallback sends. Unset, it is HTTPX's default,
@@ -261,10 +262,13 @@ OpenCode `"headers": {"Authorization": "Bearer <key>"}`. Without a configured he
 treats a 401 as a cue to start OAuth, which Butterscout does not offer. This keyed setup is
 documented but has not been tested end to end in a harness.
 
-Known limit: `/api/v1/extract` and `butterscout_extract` check the URL (and its DNS) before
-fetching, and search drops literal private/local URLs, but the extractors follow redirects
-and resolve DNS again at fetch time. Don't expose `/mcp` publicly until that is enforced at
-the fetch boundary.
+Local and private addresses: Crawl4AI's browser sends its HTTP(S) traffic through Crawl4AI's
+own egress proxy (0.9.5), which refuses non-global addresses, redirects included. The fallback
+checks each new connection itself: it resolves the host once, refuses it if any answer is not
+a public unicast address, and dials only the checked addresses, so redirects and changing DNS
+answers are covered too (`butterscout/clients/public_only.py`). `/extract` also checks the URL
+up front for a clearer error. "Public" means globally routable: a home device with a global
+IPv6 address would not count as private (the default Docker network has no IPv6 route out).
 
 ## Documentation
 
