@@ -123,6 +123,9 @@ Crawl4AI is down. To keep that from hiding the failure:
   throttled), and when at least half the results have no page text. MCP clients are told to
   pass these on to the user. A page that just waited too long for a free Crawl4AI slot is
   counted in metrics, not warned about.
+- Known limit: the fallback (Trafilatura) can return a site's human-verification page or
+  JavaScript notice as `content` and report the extraction as successful. A phrase-based
+  detector was tried on paper and dropped: short real pages use the same words.
 - `butterscout_extraction_failures_total{extractor="crawl4ai"}` counts Crawl4AI failures by
   reason (`timeout`, `error`, `busy`, `unreachable`, `auth`, …); each one sent a page to the
   fallback.
